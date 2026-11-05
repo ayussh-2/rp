@@ -1,50 +1,28 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --bg: #e8ebee;
-  --panel: #f6f7f8;
-  --ink: #18212c;
-  --muted: #5b6571;
-  --line: #c5cbd2;
-  --reg-a: #a59f95;
-  --reg-b: #88827a;
-  --fines: #3a3632;
-  --ejecta: #d9801f;
-  --wheel: #27435f;
-  --wheel-2: #93a6ba;
-  --accent: #27435f;
-  --warn: #9a4a12;
-  --bad: #a3231b;
-  --trace: 217, 128, 31;
-  --s1: #27435f;
-  --s2: #b5471d;
-  --s3: #3f7d4e;
-  --s4: #7a4e9c;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --bg: #f5f5f7;
+  --panel: #ffffff;
+  --ink: #111111;
+  --muted: #6e6e73;
+  --line: #e2e2e5;
+  --reg-a: #a1a1aa;
+  --reg-b: #71717a;
+  --fines: #27272a;
+  --ejecta: #111111;
+  --wheel: #111111;
+  --wheel-2: #86868b;
+  --accent: #111111;
+  --warn: #52525b;
+  --bad: #111111;
+  --trace: 30, 30, 32;
+  --s1: #111111;
+  --s2: #52525b;
+  --s3: #71717a;
+  --s4: #a1a1aa;
+  color-scheme: light;
   box-sizing: border-box;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0e1216;
-    --panel: #151a20;
-    --ink: #e1e6eb;
-    --muted: #8b95a1;
-    --line: #2a323b;
-    --reg-a: #7e7a73;
-    --reg-b: #615e58;
-    --fines: #d6cfc2;
-    --ejecta: #f2a23c;
-    --wheel: #a9c3de;
-    --wheel-2: #4d6076;
-    --accent: #a9c3de;
-    --warn: #f0a060;
-    --bad: #ff7b6e;
-    --trace: 242, 162, 60;
-    --s1: #a9c3de;
-    --s2: #f08a5d;
-    --s3: #7cc48d;
-    --s4: #c6a2e8;
-  }
 }
 
 *,
@@ -57,7 +35,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 15px/1.45 "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 14.5px/1.45 var(--font-sans);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }

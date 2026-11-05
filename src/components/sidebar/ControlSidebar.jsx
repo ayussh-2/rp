@@ -1,8 +1,18 @@
+import { useState } from 'react';
 import { SCHEMA } from '../../constants/defaults';
 import { ControlField } from './ControlField';
 
+function DetailsSection({ title, defaultOpen, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>{title}</summary>
+      <div className="section-body">{children}</div>
+    </details>
+  );
+}
+
 export function ControlSidebar({ params, badInputs, onChange }) {
-  // Group SCHEMA items by section header
   const groups = [];
   let currentGroup = null;
 
@@ -16,15 +26,20 @@ export function ControlSidebar({ params, badInputs, onChange }) {
   }
 
   return (
-    <aside>
-      <h1>Rover wheel DEM</h1>
-      <p className="sub">
-        Every input is free entry. Values are checked, not capped. Lengths in mm.
-      </p>
-      <div id="controls">
+    <aside className="sidebar">
+      <div className="sidebar-header">
+        <h1>Rover wheel DEM</h1>
+        <p className="sub">
+          Every input is free entry. Values are checked, not capped. Lengths in mm.
+        </p>
+      </div>
+      <div id="controls" className="sidebar-controls">
         {groups.map((group) => (
-          <details key={group.title} defaultOpen={group.open}>
-            <summary>{group.title}</summary>
+          <DetailsSection
+            key={group.title}
+            title={group.title}
+            defaultOpen={group.open}
+          >
             {group.items.map((item) => (
               <ControlField
                 key={item.k}
@@ -34,7 +49,7 @@ export function ControlSidebar({ params, badInputs, onChange }) {
                 onChange={onChange}
               />
             ))}
-          </details>
+          </DetailsSection>
         ))}
       </div>
     </aside>

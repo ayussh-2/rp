@@ -1,19 +1,13 @@
-# React + Vite
+# Rover Wheel DEM v2 — 2D Low-Gravity Sandbox (React)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A 2D Discrete Element Method (DEM) simulation laboratory for planetary rover wheel-soil interactions, settling bed dynamics, grouser mechanics, and live diagnostics.
 
-Currently, two official plugins are available:
+## Features
+- **High-Performance DEM Engine**: Spring-dashpot contact laws with tangential compliance history, rolling resistance, spatial grid broadphase, and low-gravity deposition settling.
+- **Dynamic Diagnostics**: 12 real-time canvas charts including settling velocity spectra, sinkage, slip ratio, drawbar pull, driving torque, normal reaction, airborne fines, and ballistic ejecta comparison.
+- **Modular Architecture**: Schema-driven parameter controls with live validation, metrics readouts, and CSV export for time series and discrete ejecta events.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Scripts
+- `npm run dev`: Launch local Vite dev server
+- `npm run build`: Production bundle build
+- `npm run lint`: Run ESLint checks

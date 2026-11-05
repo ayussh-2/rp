@@ -116,7 +116,9 @@ export default function App() {
       clearTrace();
     };
     window.addEventListener('resize', onWinResize);
-    return () => window.removeEventListener('resize', onWinResize);
+    return () => {
+      window.removeEventListener('resize', onWinResize);
+    };
   }, [readColours, handleResize, clearTrace]);
 
   const updateCharts = useCallback(() => {

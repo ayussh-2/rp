@@ -1,10 +1,10 @@
 const SPEEDCOL = [
-  '#5a6b7d',
-  '#5f8aa3',
-  '#6fb0a0',
-  '#b9c66a',
-  '#e0a33c',
-  '#d9582b',
+  '#b8b8b8',
+  '#9a9a9a',
+  '#7c7c7c',
+  '#5e5e5e',
+  '#3f3f3f',
+  '#1c1c1c',
 ];
 
 export function circles(c, xs, ys, rs, idx, col, view) {

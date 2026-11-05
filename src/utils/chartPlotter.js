@@ -13,7 +13,7 @@ export function frameAxes(c, lo, hi, xlo, xhi, opt = {}, colours = {}, dpr = 1) 
   const X = (v) => l + ((W - l - r) * (v - xlo)) / (xhi - xlo || 1);
   const Y = (v) => t + (H - t - b) * (1 - (v - lo) / (hi - lo || 1));
 
-  x.font = 11 * d + 'px Barlow, system-ui, sans-serif';
+  x.font = 11 * d + "px 'Inter', system-ui, -apple-system, sans-serif";
   x.fillStyle = colours.muted || '#5b6571';
   x.strokeStyle = colours.line || '#c5cbd2';
   x.lineWidth = d;

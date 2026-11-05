@@ -1,17 +1,33 @@
 .wrap {
   display: grid;
-  grid-template-columns: 318px minmax(0, 1fr);
+  grid-template-columns: 350px minmax(0, 1fr);
   min-height: 100vh;
 }
 
-aside {
+aside.sidebar {
   background: var(--panel);
   border-right: 1px solid var(--line);
-  padding: 18px 16px 28px;
+  padding: 16px 14px 28px;
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: 100vh;
   position: sticky;
   top: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+aside.sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+aside.sidebar::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+.sidebar-header {
+  margin-bottom: 10px;
 }
 
 main {
@@ -20,52 +36,89 @@ main {
 }
 
 h1 {
-  font: 600 22px/1.15 "Barlow Semi Condensed", "Barlow", sans-serif;
+  font: 600 20px/1.2 var(--font-sans);
+  letter-spacing: -0.02em;
   margin: 0 0 4px;
+  color: var(--ink);
 }
 
 .sub {
   color: var(--muted);
-  font-size: 13.5px;
-  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  margin: 0 0 10px;
 }
 
 details {
   border-top: 1px solid var(--line);
-  padding: 8px 0;
+  padding: 0;
+}
+
+details:first-of-type {
+  border-top: none;
 }
 
 summary {
-  font: 600 15px "Barlow Semi Condensed", "Barlow", sans-serif;
+  font: 600 13px var(--font-sans);
   cursor: pointer;
-  padding: 2px 0;
+  padding: 8px 0;
   user-select: none;
+  color: var(--ink);
+  transition: color 0.15s ease;
+}
+
+summary:hover {
+  color: var(--muted);
+}
+
+.section-body {
+  padding-bottom: 8px;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 1fr 92px 44px;
+  grid-template-columns: 1fr 88px 36px;
   align-items: center;
   gap: 6px;
-  margin: 6px 0;
+  margin: 5px 0;
 }
 
 .row label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   line-height: 1.25;
+  word-break: break-word;
 }
 
 .row input[type="number"],
 .row select {
   font: inherit;
-  font-size: 13.5px;
+  font-size: 12.5px;
   color: var(--ink);
-  background: var(--bg);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 3px 5px;
+  padding: 4px 6px;
   width: 100%;
+  box-sizing: border-box;
+}
+
+.row input[type="number"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.row input[type="number"]::-webkit-inner-spin-button,
+.row input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.row input[type="number"]:focus,
+.row select:focus {
+  border-color: var(--ink);
+  outline: none;
 }
 
 .row select {
@@ -73,20 +126,38 @@ summary {
 }
 
 .row .u {
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--muted);
+  padding-left: 2px;
+  white-space: nowrap;
 }
 
 .row.chk {
-  grid-template-columns: auto 1fr;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: start;
+  gap: 8px;
+  margin: 7px 0;
+}
+
+.row.chk input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  cursor: pointer;
+  accent-color: var(--ink);
 }
 
 .row.chk label {
   color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
 }
 
 .row input.bad {
-  border-color: var(--bad);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
 }
 
 .bar {
@@ -99,23 +170,35 @@ summary {
 
 button,
 .bar select {
-  font: 500 14px "Barlow", sans-serif;
+  font: 500 13px var(--font-sans);
   color: var(--ink);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 7px 12px;
+  border-radius: 4px;
+  padding: 6px 12px;
   cursor: pointer;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+
+button:hover:not(:disabled),
+.bar select:hover {
+  background: var(--bg);
+  border-color: var(--muted);
 }
 
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--panel);
+}
+
+button.primary:hover:not(:disabled) {
+  opacity: 0.9;
+  background: var(--ink);
 }
 
 button:disabled {
-  opacity: 0.45;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -123,12 +206,12 @@ button:focus-visible,
 select:focus-visible,
 input:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--ejecta);
-  outline-offset: 2px;
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
 }
 
 .status {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--muted);
   margin: 0 0 8px;
 }
@@ -139,7 +222,7 @@ summary:focus-visible {
 }
 
 .checks {
-  font-size: 13px;
+  font-size: 12px;
   margin: 0 0 10px;
   padding: 0;
   list-style: none;
@@ -148,32 +231,34 @@ summary:focus-visible {
 .checks li {
   padding: 2px 0 2px 16px;
   position: relative;
+  line-height: 1.35;
 }
 
 .checks li::before {
   content: "";
   position: absolute;
   left: 3px;
-  top: 9px;
-  width: 6px;
-  height: 6px;
+  top: 7px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
 }
 
 .checks li.e {
-  color: var(--bad);
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .checks li.e::before {
-  background: var(--bad);
+  background: var(--ink);
 }
 
 .checks li.w {
-  color: var(--warn);
+  color: var(--muted);
 }
 
 .checks li.w::before {
-  background: var(--warn);
+  background: var(--muted);
 }
 
 .checks li.i {
@@ -181,13 +266,13 @@ summary:focus-visible {
 }
 
 .checks li.i::before {
-  background: var(--muted);
+  background: var(--line);
 }
 
 .stage {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -200,7 +285,7 @@ summary:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--muted);
   margin: 8px 2px 0;
 }
@@ -212,14 +297,16 @@ summary:focus-visible {
 
 .legend i {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   margin-right: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .legend i.dash {
   border-radius: 0;
+  border: 0;
   height: 0;
   border-top: 2px dashed var(--muted);
   width: 14px;
@@ -231,7 +318,7 @@ summary:focus-visible {
   gap: 0;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
   margin: 14px 0;
 }
@@ -244,12 +331,13 @@ summary:focus-visible {
 
 .readout span {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 
 .readout b {
-  font: 600 17px "Barlow Semi Condensed", "Barlow", sans-serif;
+  font: 600 14px var(--font-sans);
+  color: var(--ink);
 }
 
 .charts {
@@ -261,17 +349,18 @@ summary:focus-visible {
 .chart {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 8px 10px 6px;
 }
 
 .chart h3 {
-  font: 600 14px "Barlow Semi Condensed", "Barlow", sans-serif;
+  font: 600 12.5px var(--font-sans);
   margin: 0;
+  color: var(--ink);
 }
 
 .chart p {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   margin: 0 0 2px;
   min-height: 1.2em;
@@ -287,7 +376,7 @@ summary:focus-visible {
   .wrap {
     grid-template-columns: 1fr;
   }
-  aside {
+  aside.sidebar {
     position: static;
     max-height: none;
     border-right: 0;
