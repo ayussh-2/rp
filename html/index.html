@@ -1,0 +1,2958 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Rover wheel DEM v2, 2D low-gravity sandbox</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #e8ebee;
+        --panel: #f6f7f8;
+        --ink: #18212c;
+        --muted: #5b6571;
+        --line: #c5cbd2;
+        --reg-a: #a59f95;
+        --reg-b: #88827a;
+        --fines: #3a3632;
+        --ejecta: #d9801f;
+        --wheel: #27435f;
+        --wheel-2: #93a6ba;
+        --accent: #27435f;
+        --warn: #9a4a12;
+        --bad: #a3231b;
+        --trace: 217, 128, 31;
+        --s1: #27435f;
+        --s2: #b5471d;
+        --s3: #3f7d4e;
+        --s4: #7a4e9c;
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #0e1216;
+          --panel: #151a20;
+          --ink: #e1e6eb;
+          --muted: #8b95a1;
+          --line: #2a323b;
+          --reg-a: #7e7a73;
+          --reg-b: #615e58;
+          --fines: #d6cfc2;
+          --ejecta: #f2a23c;
+          --wheel: #a9c3de;
+          --wheel-2: #4d6076;
+          --accent: #a9c3de;
+          --warn: #f0a060;
+          --bad: #ff7b6e;
+          --trace: 242, 162, 60;
+          --s1: #a9c3de;
+          --s2: #f08a5d;
+          --s3: #7cc48d;
+          --s4: #c6a2e8;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0e1216;
+        --panel: #151a20;
+        --ink: #e1e6eb;
+        --muted: #8b95a1;
+        --line: #2a323b;
+        --reg-a: #7e7a73;
+        --reg-b: #615e58;
+        --fines: #d6cfc2;
+        --ejecta: #f2a23c;
+        --wheel: #a9c3de;
+        --wheel-2: #4d6076;
+        --accent: #a9c3de;
+        --warn: #f0a060;
+        --bad: #ff7b6e;
+        --trace: 242, 162, 60;
+        --s1: #a9c3de;
+        --s2: #f08a5d;
+        --s3: #7cc48d;
+        --s4: #c6a2e8;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: inherit;
+      }
+      html {
+        scroll-padding-top: env(safe-area-inset-top, 0px);
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.45 "Barlow",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        font-variant-numeric: tabular-nums;
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: 318px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+      aside {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 18px 16px 28px;
+        overflow-y: auto;
+        max-height: 100vh;
+        position: sticky;
+        top: 0;
+      }
+      main {
+        padding: 18px 22px 28px;
+        min-width: 0;
+      }
+      h1 {
+        font:
+          600 22px/1.15 "Barlow Semi Condensed",
+          "Barlow",
+          sans-serif;
+        margin: 0 0 4px;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 13.5px;
+        margin: 0 0 12px;
+      }
+      details {
+        border-top: 1px solid var(--line);
+        padding: 8px 0;
+      }
+      summary {
+        font:
+          600 15px "Barlow Semi Condensed",
+          "Barlow",
+          sans-serif;
+        cursor: pointer;
+        padding: 2px 0;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 92px 44px;
+        align-items: center;
+        gap: 6px;
+        margin: 6px 0;
+      }
+      .row label {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.25;
+      }
+      .row input[type="number"],
+      .row select {
+        font: inherit;
+        font-size: 13.5px;
+        color: var(--ink);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 3px 5px;
+        width: 100%;
+      }
+      .row select {
+        grid-column: 2/4;
+      }
+      .row .u {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .row.chk {
+        grid-template-columns: auto 1fr;
+      }
+      .row.chk label {
+        color: var(--ink);
+      }
+      .row input.bad {
+        border-color: var(--bad);
+      }
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin: 0 0 10px;
+      }
+      button,
+      .bar select {
+        font:
+          500 14px "Barlow",
+          sans-serif;
+        color: var(--ink);
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 7px 12px;
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible,
+      summary:focus-visible {
+        outline: 2px solid var(--ejecta);
+        outline-offset: 2px;
+      }
+      .status {
+        font-size: 13.5px;
+        color: var(--muted);
+        margin: 0 0 8px;
+      }
+      .status b {
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .checks {
+        font-size: 13px;
+        margin: 0 0 10px;
+        padding: 0;
+        list-style: none;
+      }
+      .checks li {
+        padding: 2px 0 2px 16px;
+        position: relative;
+      }
+      .checks li::before {
+        content: "";
+        position: absolute;
+        left: 3px;
+        top: 9px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      .checks li.e {
+        color: var(--bad);
+      }
+      .checks li.e::before {
+        background: var(--bad);
+      }
+      .checks li.w {
+        color: var(--warn);
+      }
+      .checks li.w::before {
+        background: var(--warn);
+      }
+      .checks li.i {
+        color: var(--muted);
+      }
+      .checks li.i::before {
+        background: var(--muted);
+      }
+      .stage {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      #view {
+        display: block;
+        width: 100%;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-size: 12.5px;
+        color: var(--muted);
+        margin: 8px 2px 0;
+      }
+      .legend i {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: -1px;
+      }
+      .legend i.dash {
+        border-radius: 0;
+        height: 0;
+        border-top: 2px dashed var(--muted);
+        width: 14px;
+      }
+      .readout {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+        margin: 14px 0;
+      }
+      .readout div {
+        background: var(--panel);
+        padding: 7px 10px;
+        box-shadow: 0 0 0 0.5px var(--line);
+      }
+      .readout span {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .readout b {
+        font:
+          600 17px "Barlow Semi Condensed",
+          "Barlow",
+          sans-serif;
+      }
+      .charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+        gap: 12px;
+      }
+      .chart {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 10px 6px;
+      }
+      .chart h3 {
+        font:
+          600 14px "Barlow Semi Condensed",
+          "Barlow",
+          sans-serif;
+        margin: 0;
+      }
+      .chart p {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0 0 2px;
+        min-height: 1.2em;
+      }
+      .chart canvas {
+        display: block;
+        width: 100%;
+        height: 160px;
+      }
+      @media (max-width: 900px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          position: static;
+          max-height: none;
+          border-right: 0;
+          border-top: 1px solid var(--line);
+          order: 2;
+        }
+        main {
+          order: 1;
+          padding: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <aside>
+        <h1>Rover wheel DEM</h1>
+        <p class="sub">
+          Every input is free entry. Values are checked, not capped. Lengths in
+          mm.
+        </p>
+        <div id="controls"></div>
+      </aside>
+      <main>
+        <div class="bar">
+          <button class="primary" id="btnBed">Build bed and run</button>
+          <button id="btnRerun">Rerun wheel on this bed</button>
+          <button id="btnRelease">Release wheel</button>
+          <button id="btnPause">Pause</button>
+          <button id="btnStep">Step</button>
+          <select id="speed" aria-label="Simulation speed">
+            <option value="max">Full speed</option>
+            <option value="slow">Slow motion</option>
+          </select>
+          <select id="colour" aria-label="Colour grains by">
+            <option value="layers">Colour: layers</option>
+            <option value="speed">Colour: speed</option>
+            <option value="plain">Colour: fines only</option>
+          </select>
+          <button id="btnCsv">Export time series</button>
+          <button id="btnEjCsv">Export ejecta</button>
+        </div>
+        <div class="status" id="status"></div>
+        <ul class="checks" id="checks"></ul>
+        <div class="stage"><canvas id="view"></canvas></div>
+        <div class="legend">
+          <span
+            ><i style="background: var(--reg-a)"></i>Coarse grains (layer
+            bands)</span
+          >
+          <span><i style="background: var(--fines)"></i>Fines</span>
+          <span
+            ><i style="background: var(--ejecta)"></i>Airborne fines and their
+            paths</span
+          >
+          <span
+            ><i style="background: var(--wheel)"></i>Rim and grousers
+            (contact)</span
+          >
+          <span><i style="background: var(--wheel-2)"></i>Spokes and hub</span>
+          <span><i class="dash"></i>Settled surface at release</span>
+        </div>
+        <div class="readout" id="readout"></div>
+        <div class="charts" id="charts"></div>
+      </main>
+    </div>
+
+    <script>
+      // CORE-START
+      const DEFAULTS = {
+        g: 1.62,
+        depositEarth: false,
+        boundary: "periodic",
+        level: true,
+        L: 0.7,
+        H: 0.08,
+        rMin: 2.5e-3,
+        rMean: 3.0e-3,
+        rMax: 3.5e-3,
+        rFine: 1.5e-3,
+        finesFrac: 0.1,
+        rho: 2600,
+        seed: 0,
+        muPrep: 0.1,
+        alphaPrep: 0.3,
+        vMeanTol: 1e-3,
+        vMaxTol: 1e-2,
+        tHold: 0.05,
+        tSettleMin: 0.3,
+        tSettleMax: 6,
+        kn: 1e6,
+        ktRatio: 0.5,
+        en: 0.3,
+        mu: 0.5,
+        muR: 0.3,
+        muWall: 0.5,
+        muWheel: 0.7,
+        R: 0.07,
+        rwp: 2e-3,
+        nSpokes: 6,
+        hubFrac: 0.2,
+        nGrousers: 0,
+        hGrouser: 0.008,
+        wheelMass: 25,
+        dropHeight: 0.02,
+        x0: -1,
+        autoRelease: true,
+        vyRestTol: 5e-3,
+        tRestHold: 0.05,
+        tRestMax: 1.0,
+        direction: "ccw",
+        omega: 3,
+        mode: "slip",
+        slip: 0.2,
+        drawbarLoad: 0,
+        tRamp: 0.2,
+        tDrive: 1.8,
+        tCoast: 0.6,
+        stopBeforeLap: true,
+        dtFactor: 0.12,
+        logEvery: 0.005,
+        tMinFlight: 0.01,
+      };
+      const SL = 12; // contact-history slots per grain
+
+      function mulberry32(a) {
+        return function () {
+          a |= 0;
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      function triangular(u, a, c, b) {
+        // min a, mode c, max b
+        if (b <= a) return a;
+        c = Math.min(b, Math.max(a, c));
+        const f = (c - a) / (b - a);
+        return u < f
+          ? a + Math.sqrt(u * (b - a) * (c - a))
+          : b - Math.sqrt((1 - u) * (b - a) * (b - c));
+      }
+
+      class RoverDEM {
+        constructor(params) {
+          this.p = Object.assign({}, DEFAULTS, params);
+          this.seedUsed =
+            this.p.seed > 0
+              ? Math.floor(this.p.seed)
+              : 1 + Math.floor(Math.random() * 1e9);
+          this.rng = mulberry32(this.seedUsed);
+          this.periodic = this.p.boundary === "periodic";
+          this.hL = 0.5 * this.p.L;
+          this.buildWheel();
+          this.buildBed();
+        }
+        mi(dx) {
+          if (!this.periodic) return dx;
+          if (dx > this.hL) return dx - this.p.L;
+          if (dx < -this.hL) return dx + this.p.L;
+          return dx;
+        }
+        wrap(x) {
+          if (!this.periodic) return x;
+          const L = this.p.L;
+          x %= L;
+          return x < 0 ? x + L : x;
+        }
+        // --------------------------------------------------------------- wheel
+        buildWheel() {
+          const p = this.p,
+            R = p.R,
+            rp = p.rwp,
+            Rc = R - rp,
+            cx = [],
+            cy = [];
+          const n = Math.max(8, Math.ceil((2 * Math.PI * Rc) / rp));
+          for (let k = 0; k < n; k++) {
+            const a = (2 * Math.PI * k) / n;
+            cx.push(Rc * Math.cos(a));
+            cy.push(Rc * Math.sin(a));
+          }
+          this.nRim = n;
+          this.Rtip = R;
+          const nrad = Math.floor(p.hGrouser / rp + 1e-9);
+          if (p.nGrousers > 0 && nrad > 0) {
+            for (let k = 0; k < p.nGrousers; k++) {
+              const a = (2 * Math.PI * k) / p.nGrousers + Math.PI / p.nGrousers;
+              for (let q = 1; q <= nrad; q++) {
+                cx.push((Rc + q * rp) * Math.cos(a));
+                cy.push((Rc + q * rp) * Math.sin(a));
+              }
+            }
+            this.Rtip = Rc + nrad * rp + rp;
+          }
+          this.nGrouserPts = cx.length - n;
+          this.wcx = Float64Array.from(cx);
+          this.wcy = Float64Array.from(cy);
+          this.Nw = cx.length;
+          this.wrx = new Float64Array(this.Nw);
+          this.wry = new Float64Array(this.Nw);
+          this.wpx = new Float64Array(this.Nw);
+          this.wpy = new Float64Array(this.Nw);
+          const vx = [],
+            vy = [],
+            Rh = Math.max(p.hubFrac * R, rp),
+            nh = Math.max(6, Math.ceil((2 * Math.PI * Rh) / rp));
+          for (let k = 0; k < nh; k++) {
+            const a = (2 * Math.PI * k) / nh;
+            vx.push(Rh * Math.cos(a));
+            vy.push(Rh * Math.sin(a));
+          }
+          for (let k = 0; k < p.nSpokes; k++) {
+            const a = (2 * Math.PI * k) / p.nSpokes;
+            for (let rr = Rh + rp; rr < Rc - 0.5 * rp; rr += rp) {
+              vx.push(rr * Math.cos(a));
+              vy.push(rr * Math.sin(a));
+            }
+          }
+          this.wvx = Float64Array.from(vx);
+          this.wvy = Float64Array.from(vy);
+          if (this.next && this.N)
+            this.next = new Int32Array(this.N + this.Nw + 8);
+        }
+        // ----------------------------------------------------------------- bed
+        buildBed() {
+          const p = this.p,
+            rng = this.rng,
+            big = Math.max(p.rMax, p.rFine),
+            s0 = 2 * big * 1.05;
+          let nCol, s, xs;
+          if (this.periodic) {
+            nCol = Math.max(3, Math.floor(p.L / s0));
+            s = p.L / nCol;
+            xs = 0.5 * s;
+          } else {
+            nCol = Math.max(1, Math.floor((p.L - 2.4 * big) / s0) + 1);
+            s = s0;
+            xs = 1.2 * big;
+          }
+          const target = (p.level ? 1.2 : 1.0) * p.L * p.H * 0.83;
+          const X = [],
+            Y = [],
+            R = [],
+            F = [];
+          let area = 0,
+            yrow = 1.2 * big;
+          while (area < target) {
+            for (let c = 0; c < nCol; c++) {
+              const isF = rng() < p.finesFrac,
+                rr = isF ? p.rFine : triangular(rng(), p.rMin, p.rMean, p.rMax);
+              X.push(this.wrap(xs + c * s + (rng() - 0.5) * 0.06 * s));
+              Y.push(yrow + (rng() - 0.5) * 0.03 * s);
+              R.push(rr);
+              F.push(isF ? 1 : 0);
+              area += Math.PI * rr * rr;
+            }
+            yrow += s;
+            if (X.length > 300000)
+              throw new Error(
+                "More than 300 000 grains requested. Reduce the bed size or increase grain radii.",
+              );
+          }
+          this.yGenTop = yrow + big;
+          this.setParticles(X, Y, R, F);
+          for (let i = 0; i < this.N; i++) this.vx[i] = (rng() - 0.5) * 0.02;
+          let mmin = Infinity;
+          for (let i = 0; i < this.N; i++) mmin = Math.min(mmin, this.m[i]);
+          this.dt = p.dtFactor * Math.PI * Math.sqrt((0.5 * mmin) / p.kn);
+          const le = Math.log(Math.max(p.en, 1e-3));
+          this.beta2 = 2 * (-le / Math.sqrt(le * le + Math.PI * Math.PI));
+          this.kn = p.kn;
+          this.kt = p.ktRatio * p.kn;
+          this.walls = this.periodic
+            ? [[0, 0, p.L, 0]]
+            : [
+                [0, 0, p.L, 0],
+                [0, 0, 0, 50],
+                [p.L, 0, p.L, 50],
+              ];
+          this.phase = "deposit";
+          this.t = 0;
+          this.tPhase = 0;
+          this.kPhase = 0;
+          this.hold = 0;
+          this.extend = 1;
+          this.wheelOn = false;
+          this.halted = null;
+          this.settleLog = { t: [], vm: [], vx: [] };
+          this.resetWheelLogs();
+        }
+        setParticles(X, Y, R, F) {
+          const N = X.length;
+          this.N = N;
+          const A = () => new Float64Array(N);
+          this.x = Float64Array.from(X);
+          this.xu = Float64Array.from(X);
+          this.y = Float64Array.from(Y);
+          this.r = Float64Array.from(R);
+          this.vx = A();
+          this.vy = A();
+          this.w = A();
+          this.m = A();
+          this.I = A();
+          this.fx = A();
+          this.fy = A();
+          this.tq = A();
+          this.nc = new Uint16Array(N);
+          this.fine = Uint8Array.from(F);
+          this.layer = new Uint8Array(N);
+          for (let i = 0; i < N; i++) {
+            const r = this.r[i];
+            this.m[i] = this.p.rho * Math.PI * r * r;
+            this.I[i] = 0.5 * this.m[i] * r * r;
+          }
+          this.hP = new Int32Array(N * SL);
+          this.hS = new Float64Array(N * SL);
+          this.hC = new Uint8Array(N);
+          this.nP = new Int32Array(N * SL);
+          this.nS = new Float64Array(N * SL);
+          this.nC = new Uint8Array(N);
+          this.next = new Int32Array(N + this.Nw + 8);
+        }
+        resetWheelLogs() {
+          this.log = {
+            t: [],
+            dist: [],
+            sink: [],
+            slip: [],
+            dp: [],
+            tq: [],
+            vx: [],
+            vy: [],
+            fy: [],
+            air: [],
+          };
+          this.events = [];
+          this.nextLog = 0;
+          this.facc = [0, 0, 0];
+          this.nacc = 0;
+          this.ev = {
+            n: 0,
+            sumAbs: 0,
+            maxAbs: 0,
+            maxTf: 0,
+            rear: 0,
+            maxApex: 0,
+          };
+          this.settleTime = null;
+          this.nAir = 0;
+          this.tracking = false;
+          this.FW = [0, 0, 0];
+          this.nWc = 0;
+          this.stopReason = "";
+          this.tDriveStart = null;
+          this.tStop = null;
+        }
+        // ------------------------------------------------------------- contact
+        kernel(i, j, nx, ny, ov, vrx, vry, meff, mu) {
+          const tx = -ny,
+            ty = nx,
+            vn = vrx * nx + vry * ny,
+            vt = vrx * tx + vry * ty;
+          let fn = this.kn * ov + this.beta2 * Math.sqrt(meff * this.kn) * vn;
+          if (fn < 0) fn = 0;
+          const b = i * SL,
+            hc = this.hC[i];
+          let s0 = 0;
+          for (let k = 0; k < hc; k++) {
+            if (this.hP[b + k] === j) {
+              s0 = this.hS[b + k];
+              break;
+            }
+          }
+          let st = s0 + vt * this.dt;
+          let ft = -this.kt * st - this.beta2 * Math.sqrt(meff * this.kt) * vt;
+          const lim = mu * fn;
+          if (Math.abs(ft) > lim) {
+            ft = Math.sign(ft) * lim;
+            st = -ft / this.kt;
+          }
+          const c = this.nC[i];
+          if (c < SL) {
+            this.nP[b + c] = j;
+            this.nS[b + c] = st;
+            this.nC[i] = c + 1;
+          }
+          this._fn = fn;
+          this._ft = ft;
+        }
+        step(g, mu, alpha) {
+          const p = this.p,
+            N = this.N,
+            dt = this.dt,
+            muR = p.muR,
+            L = p.L,
+            per = this.periodic,
+            hL = this.hL;
+          const x = this.x,
+            y = this.y,
+            vx = this.vx,
+            vy = this.vy,
+            w = this.w,
+            r = this.r,
+            m = this.m,
+            I = this.I;
+          const fx = this.fx,
+            fy = this.fy,
+            tq = this.tq,
+            nc = this.nc;
+          fx.fill(0);
+          fy.fill(0);
+          tq.fill(0);
+          nc.fill(0);
+          this.nC.fill(0);
+          let FWx = 0,
+            FWy = 0,
+            TW = 0,
+            nWc = 0;
+          const Vx = this.Vx,
+            Vy = this.Vy,
+            Wz = this.Wz;
+          let nTot = N;
+          if (this.wheelOn) {
+            const co = Math.cos(this.th),
+              si = Math.sin(this.th);
+            for (let k = 0; k < this.Nw; k++) {
+              const rx = co * this.wcx[k] - si * this.wcy[k],
+                ry = si * this.wcx[k] + co * this.wcy[k];
+              this.wrx[k] = rx;
+              this.wry[k] = ry;
+              this.wpx[k] = this.wrap(this.Xc + rx);
+              this.wpy[k] = this.Yc + ry;
+            }
+            nTot = N + this.Nw;
+          }
+          const cs = 2 * Math.max(p.rMax, p.rFine, p.rwp) * 1.02;
+          let ymin = Infinity,
+            ymax = -Infinity;
+          for (let i = 0; i < N; i++) {
+            if (y[i] < ymin) ymin = y[i];
+            if (y[i] > ymax) ymax = y[i];
+          }
+          if (this.wheelOn) {
+            ymin = Math.min(ymin, this.Yc - this.Rtip);
+            ymax = Math.max(ymax, this.Yc + this.Rtip);
+          }
+          if (!isFinite(ymax) || ymax - ymin > 100)
+            throw new Error(
+              "Grains left the domain: numerical instability. Lower the time-step factor or raise kn.",
+            );
+          let nxC, csx, gx0;
+          if (per) {
+            nxC = Math.floor(L / cs);
+            if (nxC < 3)
+              throw new Error(
+                "Bed length must exceed three largest-grain diameters.",
+              );
+            csx = L / nxC;
+            gx0 = 0;
+          } else {
+            csx = cs;
+            gx0 = -cs;
+            nxC = Math.ceil((L + 2 * cs) / cs) + 2;
+          }
+          const gy0 = ymin - cs,
+            nyC = Math.floor((ymax - gy0) / cs) + 3,
+            nCell = nxC * nyC;
+          if (!this.head || this.head.length < nCell)
+            this.head = new Int32Array(nCell * 2);
+          const head = this.head,
+            next = this.next;
+          head.fill(-1, 0, nCell);
+          for (let id = 0; id < nTot; id++) {
+            const px = id < N ? x[id] : this.wpx[id - N],
+              py = id < N ? y[id] : this.wpy[id - N];
+            let ci = Math.floor((px - gx0) / csx);
+            if (ci < 0) ci = 0;
+            else if (ci >= nxC) ci = nxC - 1;
+            const c = ci + Math.floor((py - gy0) / cs) * nxC;
+            next[id] = head[c];
+            head[c] = id;
+          }
+          const muW = p.muWheel,
+            wcr = p.rwp;
+          for (let i = 0; i < N; i++) {
+            let ci = Math.floor((x[i] - gx0) / csx);
+            if (ci < 0) ci = 0;
+            else if (ci >= nxC) ci = nxC - 1;
+            const cj = Math.floor((y[i] - gy0) / cs);
+            for (let oy = -1; oy <= 1; oy++) {
+              const yy = cj + oy;
+              if (yy < 0 || yy >= nyC) continue;
+              for (let ox = -1; ox <= 1; ox++) {
+                let xx = ci + ox;
+                if (per) {
+                  if (xx < 0) xx += nxC;
+                  else if (xx >= nxC) xx -= nxC;
+                } else if (xx < 0 || xx >= nxC) continue;
+                for (let j = head[xx + yy * nxC]; j !== -1; j = next[j]) {
+                  if (j < N) {
+                    if (j <= i) continue;
+                    let dx = x[j] - x[i];
+                    if (per) {
+                      if (dx > hL) dx -= L;
+                      else if (dx < -hL) dx += L;
+                    }
+                    const dy = y[j] - y[i],
+                      rs = r[i] + r[j],
+                      d2 = dx * dx + dy * dy;
+                    if (d2 >= rs * rs) continue;
+                    const d = Math.sqrt(d2),
+                      nx = dx / d,
+                      ny = dy / d,
+                      wr = w[i] * r[i] + w[j] * r[j];
+                    this.kernel(
+                      i,
+                      j,
+                      nx,
+                      ny,
+                      rs - d,
+                      vx[i] - vx[j] - wr * ny,
+                      vy[i] - vy[j] + wr * nx,
+                      (m[i] * m[j]) / (m[i] + m[j]),
+                      mu,
+                    );
+                    const fn = this._fn,
+                      ft = this._ft,
+                      Fx = -fn * nx - ft * ny,
+                      Fy = -fn * ny + ft * nx;
+                    fx[i] += Fx;
+                    fy[i] += Fy;
+                    fx[j] -= Fx;
+                    fy[j] -= Fy;
+                    let Mr = 0;
+                    const wrel = w[i] - w[j];
+                    if (muR > 0 && wrel !== 0) {
+                      const Ie = (I[i] * I[j]) / (I[i] + I[j]);
+                      Mr =
+                        -Math.sign(wrel) *
+                        Math.min(
+                          muR * ((r[i] * r[j]) / rs) * fn,
+                          (0.5 * Ie * Math.abs(wrel)) / dt,
+                        );
+                    }
+                    tq[i] += r[i] * ft + Mr;
+                    tq[j] += r[j] * ft - Mr;
+                    nc[i]++;
+                    nc[j]++;
+                  } else {
+                    const k = j - N;
+                    let dx = this.wpx[k] - x[i];
+                    if (per) {
+                      if (dx > hL) dx -= L;
+                      else if (dx < -hL) dx += L;
+                    }
+                    const dy = this.wpy[k] - y[i],
+                      rs = r[i] + wcr,
+                      d2 = dx * dx + dy * dy;
+                    if (d2 >= rs * rs) continue;
+                    const d = Math.sqrt(d2),
+                      nx = dx / d,
+                      ny = dy / d,
+                      rx = this.wrx[k],
+                      ry = this.wry[k];
+                    const vkx = Vx - Wz * ry,
+                      vky = Vy + Wz * rx,
+                      wr = w[i] * r[i] + Wz * wcr;
+                    this.kernel(
+                      i,
+                      j,
+                      nx,
+                      ny,
+                      rs - d,
+                      vx[i] - vkx - wr * ny,
+                      vy[i] - vky + wr * nx,
+                      m[i],
+                      muW,
+                    );
+                    const fn = this._fn,
+                      ft = this._ft,
+                      Fx = -fn * nx - ft * ny,
+                      Fy = -fn * ny + ft * nx;
+                    fx[i] += Fx;
+                    fy[i] += Fy;
+                    tq[i] += r[i] * ft;
+                    nc[i]++;
+                    nWc++;
+                    const qx = rx - wcr * nx,
+                      qy = ry - wcr * ny;
+                    FWx -= Fx;
+                    FWy -= Fy;
+                    TW += -qx * Fy + qy * Fx;
+                  }
+                }
+              }
+            }
+          }
+          const walls = this.walls,
+            wb = N + this.Nw;
+          for (let i = 0; i < N; i++) {
+            const xi = x[i],
+              yi = y[i],
+              ri = r[i];
+            for (let q = 0; q < walls.length; q++) {
+              const s = walls[q],
+                ex = s[2] - s[0],
+                ey = s[3] - s[1];
+              let u =
+                ((xi - s[0]) * ex + (yi - s[1]) * ey) / (ex * ex + ey * ey);
+              if (u < 0) u = 0;
+              else if (u > 1) u = 1;
+              const dx = s[0] + u * ex - xi,
+                dy = s[1] + u * ey - yi,
+                d2 = dx * dx + dy * dy;
+              if (d2 >= ri * ri) continue;
+              const d = Math.sqrt(d2),
+                nx = dx / d,
+                ny = dy / d;
+              this.kernel(
+                i,
+                wb + q,
+                nx,
+                ny,
+                ri - d,
+                vx[i] - w[i] * ri * ny,
+                vy[i] + w[i] * ri * nx,
+                m[i],
+                p.muWall,
+              );
+              const fn = this._fn,
+                ft = this._ft;
+              fx[i] += -fn * nx - ft * ny;
+              fy[i] += -fn * ny + ft * nx;
+              let Mr = 0;
+              if (muR > 0 && w[i] !== 0)
+                Mr =
+                  -Math.sign(w[i]) *
+                  Math.min(muR * ri * fn, (0.5 * I[i] * Math.abs(w[i])) / dt);
+              tq[i] += ri * ft + Mr;
+              nc[i]++;
+            }
+          }
+          let a1 = this.hP;
+          this.hP = this.nP;
+          this.nP = a1;
+          let a2 = this.hS;
+          this.hS = this.nS;
+          this.nS = a2;
+          let a3 = this.hC;
+          this.hC = this.nC;
+          this.nC = a3;
+          const xu = this.xu;
+          for (let i = 0; i < N; i++) {
+            let Fx = fx[i],
+              Fy = fy[i] - m[i] * g,
+              T = tq[i];
+            if (alpha > 0) {
+              Fx -= alpha * Math.abs(Fx) * Math.sign(vx[i]);
+              Fy -= alpha * Math.abs(Fy) * Math.sign(vy[i]);
+              T -= alpha * Math.abs(T) * Math.sign(w[i]);
+            }
+            vx[i] += (Fx / m[i]) * dt;
+            vy[i] += (Fy / m[i]) * dt;
+            w[i] += (T / I[i]) * dt;
+            const ddx = vx[i] * dt;
+            xu[i] += ddx;
+            x[i] += ddx;
+            y[i] += vy[i] * dt;
+            if (per) {
+              if (x[i] >= L) x[i] -= L;
+              else if (x[i] < 0) x[i] += L;
+            }
+          }
+          this.FW[0] = FWx;
+          this.FW[1] = FWy;
+          this.FW[2] = TW;
+          this.nWc = nWc;
+          this.t += dt;
+          this.tPhase += dt;
+          this.kPhase++;
+        }
+        speeds() {
+          let s = 0,
+            v = 0;
+          for (let i = 0; i < this.N; i++) {
+            const q = Math.hypot(this.vx[i], this.vy[i]);
+            s += q;
+            if (q > v) v = q;
+          }
+          return [s / this.N, v];
+        }
+        // equilibrium test every 100 steps; returns true once criteria hold for tHold
+        settledCheck(tMin) {
+          const p = this.p,
+            [vm, vmax] = this.speeds();
+          this.settleLog.t.push(this.t);
+          this.settleLog.vm.push(vm);
+          this.settleLog.vx.push(vmax);
+          this.vmNow = vm;
+          this.vxNow = vmax;
+          if (this.tPhase >= tMin && vm < p.vMeanTol && vmax < p.vMaxTol)
+            this.hold += 100 * this.dt;
+          else this.hold = 0;
+          return this.hold >= p.tHold;
+        }
+        trim() {
+          const X = [],
+            Y = [],
+            R = [],
+            F = [],
+            VX = [],
+            VY = [],
+            W = [];
+          for (let i = 0; i < this.N; i++)
+            if (this.y[i] <= this.p.H) {
+              X.push(this.x[i]);
+              Y.push(this.y[i]);
+              R.push(this.r[i]);
+              F.push(this.fine[i]);
+              VX.push(this.vx[i]);
+              VY.push(this.vy[i]);
+              W.push(this.w[i]);
+            }
+          this.nRemoved = this.N - X.length;
+          this.setParticles(X, Y, R, F);
+          this.vx.set(VX);
+          this.vy.set(VY);
+          this.w.set(W);
+        }
+        finishBed() {
+          const p = this.p,
+            N = this.N;
+          this.tBedReady = this.t;
+          const layerH = Math.max(p.H / 8, 4 * p.rMax);
+          for (let i = 0; i < N; i++)
+            this.layer[i] = Math.floor(this.y[i] / layerH) % 2;
+          const nb = Math.max(4, Math.floor(p.L / (2 * p.rMax))),
+            bw = p.L / nb,
+            raw = new Float64Array(nb).fill(NaN);
+          for (let i = 0; i < N; i++) {
+            const b = Math.min(nb - 1, Math.max(0, Math.floor(this.x[i] / bw)));
+            const top = this.y[i] + this.r[i];
+            if (!(raw[b] >= top)) raw[b] = top;
+          }
+          for (let b = 0; b < nb; b++)
+            if (isNaN(raw[b])) raw[b] = b > 0 ? raw[b - 1] : p.H;
+          const sm = new Float64Array(nb);
+          for (let b = 0; b < nb; b++) {
+            let s = 0;
+            for (let k = -2; k <= 2; k++) {
+              let q = b + k;
+              if (this.periodic) q = (q + nb) % nb;
+              else q = Math.min(nb - 1, Math.max(0, q));
+              s += raw[q];
+            }
+            sm[b] = s / 5;
+          }
+          this.surf = sm;
+          this.surfBw = bw;
+          const sorted = Array.from(sm).sort((a, b) => a - b);
+          this.Hs = sorted[Math.floor(nb / 2)];
+          const x0 = this.periodic ? 0 : 0.1 * p.L,
+            x1 = this.periodic ? p.L : 0.9 * p.L,
+            y0 = 2 * p.rMax,
+            y1 = this.Hs - 3 * p.rMax;
+          let a = 0;
+          for (let i = 0; i < N; i++) {
+            const xi = this.x[i],
+              yi = this.y[i];
+            if (xi > x0 && xi < x1 && yi > y0 && yi < y1)
+              a += Math.PI * this.r[i] * this.r[i];
+          }
+          this.porosity = y1 > y0 ? 1 - a / ((x1 - x0) * (y1 - y0)) : NaN;
+          this.bedSnap = {
+            x: this.x.slice(),
+            y: this.y.slice(),
+            r: this.r.slice(),
+            f: this.fine.slice(),
+            layer: this.layer.slice(),
+            surf: sm.slice(),
+            surfBw: bw,
+            Hs: this.Hs,
+            porosity: this.porosity,
+            t: this.t,
+          };
+          for (let i = 0; i < N; i++) {
+            this.vx[i] = 0;
+            this.vy[i] = 0;
+            this.w[i] = 0;
+          }
+          this.phase = "ready";
+        }
+        surfAt(xq) {
+          const nb = this.surf.length;
+          let b = xq / this.surfBw - 0.5;
+          if (this.periodic) {
+            b = ((b % nb) + nb) % nb;
+            const k = Math.floor(b),
+              f = b - k;
+            return this.surf[k] * (1 - f) + this.surf[(k + 1) % nb] * f;
+          }
+          if (b <= 0) return this.surf[0];
+          if (b >= nb - 1) return this.surf[nb - 1];
+          const k = Math.floor(b),
+            f = b - k;
+          return this.surf[k] * (1 - f) + this.surf[k + 1] * f;
+        }
+        releaseWheel() {
+          const p = this.p;
+          this.dir = p.direction === "cw" ? 1 : -1;
+          const x0 = p.x0 >= 0 ? p.x0 : this.dir > 0 ? 0.25 * p.L : 0.75 * p.L;
+          this.Xc = this.wrap(x0);
+          this.Xu = this.Xc;
+          this.X0 = this.Xc;
+          this.Yc = this.surfAt(this.Xc) + this.Rtip + p.dropHeight;
+          this.Vx = 0;
+          this.Vy = 0;
+          this.Wz = 0;
+          this.th = 0;
+          this.om = 0;
+          this.wheelOn = true;
+          this.tRelease = this.t;
+          this.tPhase = 0;
+          this.phase = "drop";
+          this.contactSeen = false;
+          this.restHold = 0;
+          this.restT = 0;
+          this.resetWheelLogs();
+          const N = this.N;
+          this.prevAir = new Uint8Array(N);
+          this.tL = new Float64Array(N).fill(NaN);
+          this.xL = new Float64Array(N);
+          this.yL = new Float64Array(N);
+          this.vxL = new Float64Array(N);
+          this.vyL = new Float64Array(N);
+          this.ymx = new Float64Array(N);
+          this.air = new Uint8Array(N);
+        }
+        rerun(params) {
+          const s = this.bedSnap;
+          Object.assign(this.p, params);
+          this.buildWheel();
+          this.setParticles(s.x, s.y, s.r, s.f);
+          this.layer.set(s.layer);
+          this.surf = s.surf.slice();
+          this.surfBw = s.surfBw;
+          this.Hs = s.Hs;
+          this.porosity = s.porosity;
+          this.t = s.t;
+          this.halted = null;
+          this.phase = "ready";
+          this.wheelOn = false;
+          this.resetWheelLogs();
+        }
+        driveLimitHit() {
+          const p = this.p;
+          if (!this.periodic) {
+            if (this.dir > 0 && this.Xc + this.Rtip > p.L - 0.01) {
+              this.stopReason = "Wheel reached the right wall.";
+              return true;
+            }
+            if (this.dir < 0 && this.Xc - this.Rtip < 0.01) {
+              this.stopReason = "Wheel reached the left wall.";
+              return true;
+            }
+          } else if (
+            p.stopBeforeLap &&
+            Math.abs(this.Xu - this.X0) > p.L - 2 * this.Rtip - 0.01
+          ) {
+            this.stopReason =
+              "Stopped before the wheel re-entered its own rut (periodic bed).";
+            return true;
+          }
+          return false;
+        }
+        // one step with phase logic; returns false when the run has stopped
+        advance() {
+          const p = this.p;
+          if (this.halted || this.phase === "done") return false;
+          if (this.phase === "deposit") {
+            this.step(p.depositEarth ? 9.81 : p.g, p.muPrep, p.alphaPrep);
+            if (this.kPhase % 100 === 0) {
+              if (this.settledCheck(p.tSettleMin)) {
+                this.tDeposit = this.tPhase;
+                if (p.level) this.trim();
+                this.phase = "final";
+                this.tPhase = 0;
+                this.kPhase = 0;
+                this.hold = 0;
+              } else if (this.tPhase > p.tSettleMax * this.extend) {
+                this.halted =
+                  "Deposition has not met the settling criteria after " +
+                  this.tPhase.toFixed(2) +
+                  " s. Press Resume to continue settling, or relax the tolerances.";
+                this.extend++;
+                return false;
+              }
+            }
+            return true;
+          }
+          if (this.phase === "final") {
+            this.step(p.g, p.mu, 0);
+            if (this.kPhase % 100 === 0) {
+              if (this.settledCheck(0.1)) this.finishBed();
+              else if (this.tPhase > p.tSettleMax * this.extend) {
+                this.halted =
+                  "Final settling under the test gravity has not met the criteria after " +
+                  this.tPhase.toFixed(2) +
+                  " s. Press Resume to continue.";
+                this.extend++;
+                return false;
+              }
+            }
+            return true;
+          }
+          if (this.phase === "ready") {
+            if (p.autoRelease) {
+              this.releaseWheel();
+              return true;
+            }
+            return false;
+          }
+          // wheel phases
+          const tw = this.t - this.tRelease;
+          if (
+            this.phase === "drive" &&
+            (tw - this.tDriveStart >= p.tDrive || this.driveLimitHit())
+          ) {
+            if (!this.stopReason) this.stopReason = "Drive duration reached.";
+            this.phase = "coast";
+            this.tStop = tw;
+          }
+          if (this.phase === "coast" && tw - this.tStop >= p.tCoast) {
+            this.phase = "done";
+            return false;
+          }
+          this.step(p.g, p.mu, 0);
+          const dt = this.dt,
+            M = p.wheelMass,
+            FW = this.FW,
+            dir = this.dir;
+          let om = 0;
+          if (this.phase === "drop") {
+            this.Wz = 0;
+            this.Vx = 0;
+            if (this.nWc > 0) this.contactSeen = true;
+            if (this.contactSeen) {
+              this.restT += dt;
+              if (Math.abs(this.Vy) < p.vyRestTol) this.restHold += dt;
+              else this.restHold = 0;
+              if (this.restHold >= p.tRestHold || this.restT >= p.tRestMax) {
+                this.phase = "drive";
+                this.tDriveStart = tw;
+                this.tracking = true;
+                this.prevAir.fill(1);
+                this.tL.fill(NaN);
+                this.wheelRestHeight = this.Yc;
+              }
+            }
+          } else if (this.phase === "drive") {
+            const f = Math.min(
+              1,
+              (tw - this.tDriveStart) / Math.max(p.tRamp, 1e-9),
+            );
+            om = f * p.omega;
+            this.Wz = -dir * om;
+            if (p.mode === "slip") this.Vx = dir * om * p.R * (1 - p.slip);
+            else this.Vx += ((FW[0] - dir * f * p.drawbarLoad) / M) * dt;
+          } else {
+            this.Wz = 0;
+            this.Vx = 0;
+          }
+          this.om = om;
+          this.Vy += (FW[1] / M - p.g) * dt;
+          const dX = this.Vx * dt;
+          this.Xu += dX;
+          this.Xc = this.wrap(this.Xc + dX);
+          this.Yc += this.Vy * dt;
+          this.th += this.Wz * dt;
+          this.facc[0] += FW[0];
+          this.facc[1] += FW[1];
+          this.facc[2] += FW[2];
+          this.nacc++;
+          if (this.tracking) {
+            const N = this.N,
+              nc = this.nc,
+              fine = this.fine,
+              air = this.air,
+              prev = this.prevAir,
+              tL = this.tL,
+              ev = this.ev,
+              g = p.g;
+            let nAir = 0;
+            for (let i = 0; i < N; i++) {
+              if (!fine[i]) {
+                air[i] = 0;
+                continue;
+              }
+              const a = nc[i] === 0 ? 1 : 0;
+              air[i] = a;
+              if (a && !prev[i]) {
+                tL[i] = this.t;
+                this.xL[i] = this.xu[i];
+                this.yL[i] = this.y[i];
+                this.vxL[i] = this.vx[i];
+                this.vyL[i] = this.vy[i];
+                this.ymx[i] = this.y[i];
+              } else if (a) {
+                if (this.y[i] > this.ymx[i]) this.ymx[i] = this.y[i];
+              } else if (prev[i] && !isNaN(tL[i])) {
+                const tf = this.t - tL[i];
+                if (tf > p.tMinFlight) {
+                  const dx = dir * (this.xu[i] - this.xL[i]),
+                    vy0 = this.vyL[i],
+                    y0 = this.yL[i],
+                    y1 = this.y[i];
+                  const tb =
+                      (vy0 +
+                        Math.sqrt(Math.max(vy0 * vy0 + 2 * g * (y0 - y1), 0))) /
+                      g,
+                    apex = this.ymx[i] - y0;
+                  const v0 = Math.hypot(this.vxL[i], vy0),
+                    ang = (Math.atan2(vy0, dir * this.vxL[i]) * 180) / Math.PI;
+                  ev.n++;
+                  ev.sumAbs += Math.abs(dx);
+                  if (Math.abs(dx) > ev.maxAbs) ev.maxAbs = Math.abs(dx);
+                  if (tf > ev.maxTf) ev.maxTf = tf;
+                  if (dx < 0) ev.rear++;
+                  if (apex > ev.maxApex) ev.maxApex = apex;
+                  if (this.events.length < 50000)
+                    this.events.push({
+                      t: tL[i] - this.tRelease,
+                      tf,
+                      tb,
+                      dx,
+                      apex,
+                      v0,
+                      ang,
+                      x0: this.xL[i],
+                      y0,
+                      y1,
+                    });
+                }
+                tL[i] = NaN;
+              }
+              if (a && !isNaN(tL[i]) && this.t - tL[i] > p.tMinFlight) nAir++;
+              prev[i] = a;
+            }
+            this.nAir = nAir;
+            if (
+              this.phase === "coast" &&
+              nAir === 0 &&
+              this.settleTime === null &&
+              tw - this.tStop > 0.005
+            )
+              this.settleTime = tw - this.tStop;
+          }
+          if (tw >= this.nextLog) {
+            const Lg = this.log,
+              n = Math.max(this.nacc, 1),
+              R = p.R;
+            Lg.t.push(tw);
+            Lg.dist.push(dir * (this.Xu - this.X0));
+            Lg.sink.push((this.surfAt(this.Xc) - (this.Yc - R)) * 1e3);
+            Lg.slip.push(om > 1e-9 ? 1 - (dir * this.Vx) / (om * R) : NaN);
+            Lg.dp.push((dir * this.facc[0]) / n);
+            Lg.tq.push((dir * this.facc[2]) / n);
+            Lg.fy.push(this.facc[1] / n);
+            Lg.vx.push(dir * this.Vx);
+            Lg.vy.push(this.Vy);
+            Lg.air.push(this.nAir);
+            this.facc = [0, 0, 0];
+            this.nacc = 0;
+            this.nextLog += p.logEvery;
+          }
+          return true;
+        }
+      }
+      if (typeof module !== "undefined")
+        module.exports = { RoverDEM, DEFAULTS };
+      // CORE-END
+    </script>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      // sc: display = value*sc ; lvl: which rebuild the parameter needs
+      const SCHEMA = [
+        { g: "Environment and boundaries", open: true },
+        {
+          k: "g",
+          label: "Gravity (Moon 1.62, Mars 3.71, Earth 9.81)",
+          unit: "m/s²",
+          sc: 1,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "depositEarth",
+          label:
+            "Deposit at Earth gravity, then settle at test gravity (faster)",
+          type: "check",
+          lvl: "bed",
+        },
+        {
+          k: "boundary",
+          label: "Side boundaries",
+          type: "select",
+          opts: [
+            ["periodic", "Periodic (unbounded)"],
+            ["walls", "Rigid walls"],
+          ],
+          lvl: "bed",
+        },
+        { g: "Bed geometry and grain sizes", open: true },
+        {
+          k: "L",
+          label: "Bed length",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "bed",
+          pos: 1,
+        },
+        { k: "H", label: "Bed depth", unit: "mm", sc: 1e3, lvl: "bed", pos: 1 },
+        {
+          k: "level",
+          label: "Level the surface (remove grains above bed depth)",
+          type: "check",
+          lvl: "bed",
+        },
+        {
+          k: "rMin",
+          label: "Grain radius, minimum",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "rMean",
+          label: "Grain radius, most likely",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "rMax",
+          label: "Grain radius, maximum",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "rFine",
+          label: "Fines radius",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "finesFrac",
+          label: "Fines, number fraction",
+          unit: "%",
+          sc: 100,
+          lvl: "bed",
+          min: 0,
+          max: 100,
+        },
+        {
+          k: "rho",
+          label: "Grain density",
+          unit: "kg/m³",
+          sc: 1,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "seed",
+          label: "Random seed (0 = new layout every build)",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+          int: 1,
+        },
+        { g: "Bed preparation and settling" },
+        {
+          k: "muPrep",
+          label: "Friction during deposition (lower = denser)",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+        },
+        {
+          k: "alphaPrep",
+          label: "Local damping during deposition only",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+          max: 0.99,
+        },
+        {
+          k: "vMeanTol",
+          label: "Settled when mean grain speed is below",
+          unit: "mm/s",
+          sc: 1e3,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "vMaxTol",
+          label: "and maximum grain speed is below",
+          unit: "mm/s",
+          sc: 1e3,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "tHold",
+          label: "for at least",
+          unit: "s",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+        },
+        {
+          k: "tSettleMin",
+          label: "Minimum deposition time",
+          unit: "s",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+        },
+        {
+          k: "tSettleMax",
+          label: "Pause and ask if not settled after",
+          unit: "s",
+          sc: 1,
+          lvl: "bed",
+          pos: 1,
+        },
+        { g: "Contact model" },
+        {
+          k: "kn",
+          label: "Normal stiffness kn",
+          unit: "N/m/m",
+          sc: 1,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "ktRatio",
+          label: "Tangential/normal stiffness",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "en",
+          label: "Normal restitution",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+          max: 1,
+        },
+        {
+          k: "mu",
+          label: "Grain friction μ",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+        },
+        {
+          k: "muR",
+          label: "Rolling resistance μr",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+        },
+        {
+          k: "muWall",
+          label: "Grain–wall friction",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          min: 0,
+        },
+        {
+          k: "muWheel",
+          label: "Grain–wheel friction",
+          unit: "",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+        },
+        { g: "Wheel (rigid clump of particles)", open: true },
+        {
+          k: "R",
+          label: "Rim outer radius",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "wheel",
+          pos: 1,
+        },
+        {
+          k: "rwp",
+          label: "Wheel particle radius",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "wheel",
+          pos: 1,
+        },
+        {
+          k: "nSpokes",
+          label: "Spokes",
+          unit: "",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+          int: 1,
+        },
+        {
+          k: "hubFrac",
+          label: "Hub radius / rim radius",
+          unit: "",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+          max: 0.9,
+        },
+        {
+          k: "nGrousers",
+          label: "Grousers",
+          unit: "",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+          int: 1,
+        },
+        {
+          k: "hGrouser",
+          label: "Grouser height (rounded to whole wheel particles)",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "wheel",
+          min: 0,
+        },
+        {
+          k: "wheelMass",
+          label: "Wheel mass per metre width (load = mass × g)",
+          unit: "kg/m",
+          sc: 1,
+          lvl: "wheel",
+          pos: 1,
+        },
+        {
+          k: "dropHeight",
+          label: "Drop height above settled surface",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "wheel",
+          min: 0,
+        },
+        {
+          k: "x0",
+          label: "Start position x (blank = auto)",
+          unit: "mm",
+          sc: 1e3,
+          lvl: "wheel",
+          blankAuto: 1,
+        },
+        {
+          k: "autoRelease",
+          label: "Release the wheel automatically once the bed has settled",
+          type: "check",
+          lvl: "wheel",
+        },
+        {
+          k: "vyRestTol",
+          label: "Start driving when wheel vertical speed is below",
+          unit: "mm/s",
+          sc: 1e3,
+          lvl: "wheel",
+          pos: 1,
+        },
+        {
+          k: "tRestHold",
+          label: "for at least",
+          unit: "s",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+        },
+        {
+          k: "tRestMax",
+          label: "or at most after first contact",
+          unit: "s",
+          sc: 1,
+          lvl: "wheel",
+          pos: 1,
+        },
+        { g: "Drive", open: true },
+        {
+          k: "direction",
+          label: "Rotation",
+          type: "select",
+          opts: [
+            ["ccw", "Counterclockwise (travels left)"],
+            ["cw", "Clockwise (travels right)"],
+          ],
+          lvl: "wheel",
+        },
+        {
+          k: "omega",
+          label: "Angular speed |ω|",
+          unit: "rad/s",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+        },
+        {
+          k: "mode",
+          label: "Mode",
+          type: "select",
+          opts: [
+            ["slip", "Imposed slip (ω and v set)"],
+            ["free", "Free (ω set, slip emerges)"],
+          ],
+          lvl: "wheel",
+        },
+        {
+          k: "slip",
+          label: "Imposed slip (imposed-slip mode)",
+          unit: "",
+          sc: 1,
+          lvl: "wheel",
+        },
+        {
+          k: "drawbarLoad",
+          label: "Drawbar load (free mode)",
+          unit: "N/m",
+          sc: 1,
+          lvl: "wheel",
+        },
+        {
+          k: "tRamp",
+          label: "Spin-up time",
+          unit: "s",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+        },
+        { g: "Run length", open: true },
+        {
+          k: "tDrive",
+          label: "Drive duration",
+          unit: "s",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+        },
+        {
+          k: "tCoast",
+          label: "Observe after wheel stops",
+          unit: "s",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+        },
+        {
+          k: "stopBeforeLap",
+          label: "Periodic bed: stop before the wheel re-enters its own rut",
+          type: "check",
+          lvl: "wheel",
+        },
+        { g: "Numerics and output" },
+        {
+          k: "dtFactor",
+          label: "Time-step factor (fraction of contact time / π)",
+          unit: "",
+          sc: 1,
+          lvl: "bed",
+          pos: 1,
+        },
+        {
+          k: "logEvery",
+          label: "Logging interval",
+          unit: "s",
+          sc: 1,
+          lvl: "wheel",
+          pos: 1,
+        },
+        {
+          k: "tMinFlight",
+          label: "Shortest flight counted as ejecta",
+          unit: "s",
+          sc: 1,
+          lvl: "wheel",
+          min: 0,
+        },
+      ];
+      const params = Object.assign({}, DEFAULTS);
+      let bedParams = null;
+      function fmtVal(s, v) {
+        if (s.blankAuto && v < 0) return "";
+        const d = v * s.sc;
+        return String(+d.toPrecision(6));
+      }
+      function buildControls() {
+        const root = $("controls");
+        let box = null;
+        for (const s of SCHEMA) {
+          if (s.g) {
+            box = document.createElement("details");
+            box.open = !!s.open;
+            const sm = document.createElement("summary");
+            sm.textContent = s.g;
+            box.appendChild(sm);
+            root.appendChild(box);
+            continue;
+          }
+          const id = "p_" + s.k,
+            d = document.createElement("div");
+          if (s.type === "check") {
+            d.className = "row chk";
+            const inp = document.createElement("input");
+            inp.type = "checkbox";
+            inp.id = id;
+            inp.checked = !!params[s.k];
+            inp.onchange = () => {
+              params[s.k] = inp.checked;
+              refreshChecks();
+            };
+            const lb = document.createElement("label");
+            lb.htmlFor = id;
+            lb.textContent = s.label;
+            d.append(inp, lb);
+          } else if (s.type === "select") {
+            d.className = "row";
+            const lb = document.createElement("label");
+            lb.htmlFor = id;
+            lb.textContent = s.label;
+            const sel = document.createElement("select");
+            sel.id = id;
+            for (const [v, t] of s.opts) {
+              const o = document.createElement("option");
+              o.value = v;
+              o.textContent = t;
+              o.selected = v === params[s.k];
+              sel.appendChild(o);
+            }
+            sel.onchange = () => {
+              params[s.k] = sel.value;
+              refreshChecks();
+            };
+            d.append(lb, sel);
+          } else {
+            d.className = "row";
+            const lb = document.createElement("label");
+            lb.htmlFor = id;
+            lb.textContent = s.label;
+            const inp = document.createElement("input");
+            inp.type = "number";
+            inp.id = id;
+            inp.step = "any";
+            inp.value = fmtVal(s, params[s.k]);
+            const u = document.createElement("span");
+            u.className = "u";
+            u.textContent = s.unit;
+            inp.oninput = () => {
+              if (s.blankAuto && inp.value.trim() === "") {
+                params[s.k] = -1;
+                inp.classList.remove("bad");
+                refreshChecks();
+                return;
+              }
+              const v = parseFloat(inp.value);
+              let ok = isFinite(v);
+              if (ok && s.pos && v <= 0) ok = false;
+              if (ok && s.min !== undefined && v < s.min) ok = false;
+              if (ok && s.max !== undefined && v > s.max) ok = false;
+              if (ok && s.int && Math.floor(v) !== v) ok = false;
+              inp.classList.toggle("bad", !ok);
+              if (ok) params[s.k] = v / s.sc;
+              badInputs[s.k] = !ok;
+              refreshChecks();
+            };
+            d.append(lb, inp, u);
+          }
+          box.appendChild(d);
+        }
+      }
+      const badInputs = {};
+      function bedChanged() {
+        return (
+          !bedParams ||
+          SCHEMA.some(
+            (s) => s.k && s.lvl === "bed" && bedParams[s.k] !== params[s.k],
+          )
+        );
+      }
+      function estimate(p) {
+        const a = p.rMin,
+          c = p.rMean,
+          b = p.rMax,
+          mr = (a + b + c) / 3,
+          vr = (a * a + b * b + c * c - a * b - a * c - b * c) / 18;
+        const ar =
+          Math.PI *
+          ((1 - p.finesFrac) * (mr * mr + vr) +
+            p.finesFrac * p.rFine * p.rFine);
+        const Ngen = ((p.level ? 1.2 : 1.0) * p.L * p.H * 0.83) / ar,
+          Nbed = (p.L * p.H * 0.83) / ar;
+        const rmin = Math.min(p.rMin, p.finesFrac > 0 ? p.rFine : Infinity),
+          mmin = p.rho * Math.PI * rmin * rmin;
+        const dt = p.dtFactor * Math.PI * Math.sqrt((0.5 * mmin) / p.kn);
+        return { Ngen, Nbed, dt, d50: 2 * mr };
+      }
+      function validate(p) {
+        const E = [],
+          W = [],
+          I = [];
+        if (Object.values(badInputs).some(Boolean))
+          E.push("Some inputs are invalid (outlined in red).");
+        if (!(p.rMin <= p.rMean && p.rMean <= p.rMax))
+          E.push("Grain radii must satisfy minimum ≤ most likely ≤ maximum.");
+        if (p.rwp * 3 >= p.R)
+          E.push("Rim radius must be more than three wheel-particle radii.");
+        const est = estimate(p);
+        const nrad = Math.floor(p.hGrouser / p.rwp + 1e-9);
+        if (p.nGrousers > 0 && nrad < 1)
+          W.push(
+            "Grouser height is below one wheel-particle radius (" +
+              (p.rwp * 1e3).toFixed(1) +
+              " mm), so no grouser particles will be placed.",
+          );
+        if (p.nGrousers > 0 && nrad >= 1)
+          I.push(
+            "Grousers: " +
+              p.nGrousers +
+              " × " +
+              nrad +
+              " particles, actual height " +
+              (nrad * p.rwp * 1e3).toFixed(1) +
+              " mm.",
+          );
+        const Rtip = p.nGrousers > 0 && nrad > 0 ? p.R + nrad * p.rwp : p.R;
+        if (p.H < p.R)
+          W.push(
+            "Bed depth is smaller than the wheel radius; the base will stiffen the response.",
+          );
+        if (p.boundary === "walls" && p.L < 6 * p.R)
+          W.push(
+            "Bed is shorter than six wheel radii; side walls will dominate.",
+          );
+        if (p.boundary === "periodic" && p.L < 4 * Rtip)
+          W.push(
+            "Periodic bed shorter than four wheel radii: the wheel will interact with its own rut quickly.",
+          );
+        if (p.R / est.d50 < 8)
+          W.push(
+            "Wheel diameter is only " +
+              ((2 * p.R) / est.d50).toFixed(1) +
+              " median grain diameters; expect grain-scale scatter.",
+          );
+        if (p.finesFrac > 0 && p.rFine >= p.rMin)
+          W.push(
+            "Fines are not smaller than the coarse grains. They are still tracked as ejecta.",
+          );
+        if (est.Ngen > 8000)
+          W.push(
+            "About " +
+              Math.round(est.Ngen) +
+              " grains will be generated; the browser run will be slow.",
+          );
+        const W0 = p.wheelMass * p.g,
+          ovl = W0 / (4 * p.kn);
+        if (ovl > 0.05 * p.rMin)
+          W.push(
+            "Wheel load gives contact overlaps near " +
+              ((100 * ovl) / p.rMin).toFixed(0) +
+              " % of the smallest radius. Raise kn.",
+          );
+        if (p.mode === "slip" && (p.slip >= 1 || p.slip <= -1))
+          W.push(
+            "Imposed slip of " +
+              p.slip +
+              " means the wheel does not advance or moves backwards.",
+          );
+        if (p.boundary === "walls") {
+          const x0 =
+            p.x0 >= 0 ? p.x0 : p.direction === "cw" ? 0.25 * p.L : 0.75 * p.L;
+          if (x0 - Rtip < 0 || x0 + Rtip > p.L)
+            E.push("Wheel start position puts the wheel through a side wall.");
+        }
+        const travel =
+          p.omega *
+          p.R *
+          (p.mode === "slip" ? 1 - p.slip : 1) *
+          Math.max(p.tDrive - 0.5 * p.tRamp, 0);
+        const room =
+          p.boundary === "periodic"
+            ? p.stopBeforeLap
+              ? p.L - 2 * Rtip
+              : Infinity
+            : 0.5 * p.L;
+        if (travel > room)
+          I.push(
+            "At these settings the wheel would travel about " +
+              (travel * 1e3).toFixed(0) +
+              " mm; the drive will stop early at about " +
+              (room * 1e3).toFixed(0) +
+              " mm.",
+          );
+        I.push(
+          "About " +
+            Math.round(est.Nbed) +
+            " grains in the bed, Δt ≈ " +
+            (est.dt * 1e6).toFixed(1) +
+            " µs, " +
+            Math.round((p.tDrive + p.tCoast + 0.5) / est.dt).toLocaleString() +
+            " steps for the wheel phases.",
+        );
+        return { E, W, I };
+      }
+      function refreshChecks() {
+        const v = validate(params),
+          ul = $("checks");
+        ul.innerHTML = "";
+        const add = (cls, t) => {
+          const li = document.createElement("li");
+          li.className = cls;
+          li.textContent = t;
+          ul.appendChild(li);
+        };
+        if (sim && bedParams && bedChanged())
+          add(
+            "w",
+            'Bed or contact settings differ from the current bed. "Build bed and run" applies them.',
+          );
+        v.E.forEach((t) => add("e", t));
+        v.W.forEach((t) => add("w", t));
+        v.I.forEach((t) => add("i", t));
+        $("btnBed").disabled = v.E.length > 0;
+        $("btnRerun").disabled =
+          v.E.length > 0 || !sim || !sim.bedSnap || bedChanged();
+        return v;
+      }
+
+      let sim = null,
+        running = false,
+        err = null,
+        frameNo = 0,
+        viewDirty = true;
+      function newBed() {
+        if (refreshChecks().E.length) return;
+        err = null;
+        try {
+          sim = new RoverDEM(Object.assign({}, params));
+        } catch (e) {
+          err = e.message;
+          sim = null;
+          return;
+        }
+        bedParams = Object.assign({}, params);
+        running = true;
+        viewDirty = true;
+        clearTrace();
+        refreshChecks();
+        setPauseLabel();
+      }
+      function rerun() {
+        if (!sim || !sim.bedSnap || bedChanged()) {
+          newBed();
+          return;
+        }
+        err = null;
+        const wp = {};
+        for (const s of SCHEMA)
+          if (s.k && s.lvl === "wheel") wp[s.k] = params[s.k];
+        sim.rerun(wp);
+        running = true;
+        viewDirty = true;
+        clearTrace();
+        setPauseLabel();
+      }
+      function setPauseLabel() {
+        $("btnPause").textContent = running ? "Pause" : "Resume";
+      }
+      $("btnBed").onclick = newBed;
+      $("btnRerun").onclick = rerun;
+      $("btnRelease").onclick = () => {
+        if (sim && sim.phase === "ready") {
+          const wp = {};
+          for (const s of SCHEMA)
+            if (s.k && s.lvl === "wheel") wp[s.k] = params[s.k];
+          Object.assign(sim.p, wp);
+          sim.buildWheel();
+          sim.releaseWheel();
+          running = true;
+          viewDirty = true;
+          clearTrace();
+          setPauseLabel();
+        }
+      };
+      $("btnPause").onclick = () => {
+        if (!sim) return;
+        if (sim.halted) {
+          sim.halted = null;
+          running = true;
+        } else running = !running;
+        setPauseLabel();
+      };
+      $("btnStep").onclick = () => {
+        if (!sim) return;
+        running = false;
+        if (sim.halted) sim.halted = null;
+        try {
+          for (let k = 0; k < 50; k++) if (!sim.advance()) break;
+        } catch (e) {
+          err = e.message;
+        }
+        setPauseLabel();
+      };
+      function download(name, text) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      $("btnCsv").onclick = () => {
+        if (!sim) return;
+        const L = sim.log;
+        let s =
+          "t_s,travel_m,sinkage_mm,slip,drawbar_pull_N_per_m,drive_torque_Nm_per_m,forward_speed_m_s,vertical_speed_m_s,vertical_soil_force_N_per_m,airborne_fines\n";
+        for (let k = 0; k < L.t.length; k++)
+          s +=
+            [
+              L.t[k],
+              L.dist[k],
+              L.sink[k],
+              L.slip[k],
+              L.dp[k],
+              L.tq[k],
+              L.vx[k],
+              L.vy[k],
+              L.fy[k],
+              L.air[k],
+            ]
+              .map((v) => (isFinite(v) ? +v.toPrecision(7) : ""))
+              .join(",") + "\n";
+        download("rover_dem_timeseries_seed" + sim.seedUsed + ".csv", s);
+      };
+      $("btnEjCsv").onclick = () => {
+        if (!sim) return;
+        let s =
+          "t_launch_s,flight_time_s,ballistic_time_s,distance_along_travel_m,apex_m,launch_speed_m_s,launch_angle_deg,x0_m,y0_m,y_land_m\n";
+        for (const e of sim.events)
+          s +=
+            [e.t, e.tf, e.tb, e.dx, e.apex, e.v0, e.ang, e.x0, e.y0, e.y1]
+              .map((v) => +v.toPrecision(7))
+              .join(",") + "\n";
+        download("rover_dem_ejecta_seed" + sim.seedUsed + ".csv", s);
+      };
+
+      // -------------------------------------------------------------- drawing
+      const cv = $("view"),
+        ctx = cv.getContext("2d");
+      const trace = document.createElement("canvas"),
+        tctx = trace.getContext("2d");
+      let C = {},
+        view = { s: 1, yTop: 0.2, dpr: 1 };
+      function readColours() {
+        const cs = getComputedStyle(document.documentElement);
+        for (const k of [
+          "bg",
+          "panel",
+          "ink",
+          "muted",
+          "line",
+          "reg-a",
+          "reg-b",
+          "fines",
+          "ejecta",
+          "wheel",
+          "wheel-2",
+          "trace",
+          "s1",
+          "s2",
+          "s3",
+          "s4",
+        ])
+          C[k] = cs.getPropertyValue("--" + k).trim();
+      }
+      matchMedia("(prefers-color-scheme: dark)").addEventListener(
+        "change",
+        () => {
+          readColours();
+          clearTrace();
+        },
+      );
+      function resize() {
+        const dpr = window.devicePixelRatio || 1,
+          wCss = cv.parentElement.clientWidth;
+        const p = sim ? sim.p : params,
+          Rtip = sim ? sim.Rtip : p.R;
+        const yTop = Math.max(
+          sim ? sim.yGenTop : p.H * 1.8,
+          p.H + 2 * Rtip + p.dropHeight + 0.02,
+        );
+        const hCss = Math.max(160, Math.round((wCss * (yTop + 0.004)) / p.L));
+        cv.width = Math.round(wCss * dpr);
+        cv.height = Math.round(hCss * dpr);
+        cv.style.height = hCss + "px";
+        trace.width = cv.width;
+        trace.height = cv.height;
+        view = { s: cv.width / p.L, yTop, dpr };
+        document.querySelectorAll(".chart canvas").forEach((c) => {
+          c.width = Math.round(c.clientWidth * dpr);
+          c.height = Math.round(160 * dpr);
+        });
+        viewDirty = false;
+      }
+      function clearTrace() {
+        tctx.clearRect(0, 0, trace.width, trace.height);
+      }
+      window.addEventListener("resize", () => {
+        viewDirty = true;
+        clearTrace();
+      });
+      const PX = (x) => x * view.s,
+        PY = (y) => (view.yTop - y) * view.s;
+      function circles(c, xs, ys, rs, idx, col) {
+        if (!idx.length) return;
+        c.fillStyle = col;
+        c.beginPath();
+        for (const i of idx) {
+          const px = PX(xs[i]),
+            py = PY(ys[i]),
+            pr = Math.max(rs[i] * view.s, 0.6);
+          c.moveTo(px + pr, py);
+          c.arc(px, py, pr, 0, 6.2832);
+        }
+        c.fill();
+      }
+      const SPEEDCOL = [
+        "#5a6b7d",
+        "#5f8aa3",
+        "#6fb0a0",
+        "#b9c66a",
+        "#e0a33c",
+        "#d9582b",
+      ];
+      function draw() {
+        if (viewDirty) resize();
+        ctx.fillStyle = C.panel;
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        if (!sim) return;
+        const p = sim.p,
+          N = sim.N,
+          mode = $("colour").value;
+        ctx.drawImage(trace, 0, 0);
+        ctx.strokeStyle = C.muted;
+        ctx.lineWidth = 2 * view.dpr;
+        ctx.beginPath();
+        if (sim.periodic) {
+          ctx.moveTo(PX(0), PY(0));
+          ctx.lineTo(PX(p.L), PY(0));
+        } else {
+          ctx.moveTo(PX(0), PY(view.yTop));
+          ctx.lineTo(PX(0), PY(0));
+          ctx.lineTo(PX(p.L), PY(0));
+          ctx.lineTo(PX(p.L), PY(view.yTop));
+        }
+        ctx.stroke();
+        if (sim.surf) {
+          ctx.strokeStyle = C.muted;
+          ctx.lineWidth = view.dpr;
+          ctx.setLineDash([5 * view.dpr, 4 * view.dpr]);
+          ctx.beginPath();
+          for (let k = 0; k <= 200; k++) {
+            const xq = (p.L * k) / 200;
+            const yq = sim.surfAt(xq);
+            if (k) ctx.lineTo(PX(xq), PY(yq));
+            else ctx.moveTo(PX(xq), PY(yq));
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        const g = [[], [], [], []],
+          bins = [[], [], [], [], [], []],
+          airOn = sim.tracking && sim.air;
+        for (let i = 0; i < N; i++) {
+          if (airOn && sim.air[i]) {
+            g[3].push(i);
+            continue;
+          }
+          if (mode === "speed") {
+            const v = Math.hypot(sim.vx[i], sim.vy[i]);
+            bins[Math.min(5, Math.floor(v / 0.03))].push(i);
+          } else if (sim.fine[i]) g[2].push(i);
+          else g[mode === "plain" ? 0 : sim.layer[i]].push(i);
+        }
+        if (mode === "speed")
+          bins.forEach((b, k) =>
+            circles(ctx, sim.x, sim.y, sim.r, b, SPEEDCOL[k]),
+          );
+        else {
+          circles(ctx, sim.x, sim.y, sim.r, g[0], C["reg-a"]);
+          circles(ctx, sim.x, sim.y, sim.r, g[1], C["reg-b"]);
+          circles(ctx, sim.x, sim.y, sim.r, g[2], C.fines);
+        }
+        circles(ctx, sim.x, sim.y, sim.r, g[3], C.ejecta);
+        if (g[3].length) {
+          tctx.fillStyle = "rgba(" + C.trace + ",0.28)";
+          tctx.beginPath();
+          for (const i of g[3]) {
+            const px = PX(sim.x[i]),
+              py = PY(sim.y[i]);
+            tctx.moveTo(px + 1.1 * view.dpr, py);
+            tctx.arc(px, py, 1.1 * view.dpr, 0, 6.2832);
+          }
+          tctx.fill();
+        }
+        if (sim.wheelOn) {
+          const co = Math.cos(sim.th),
+            si = Math.sin(sim.th),
+            rp = p.rwp * view.s;
+          const shifts = sim.periodic ? [0, -p.L, p.L] : [0];
+          for (const sh of shifts) {
+            const xc = sim.Xc + sh;
+            if (xc + sim.Rtip < 0 || xc - sim.Rtip > p.L) continue;
+            const dot = (lx, ly, col) => {
+              ctx.fillStyle = col;
+              ctx.beginPath();
+              for (let k = 0; k < lx.length; k++) {
+                const px = PX(xc + co * lx[k] - si * ly[k]),
+                  py = PY(sim.Yc + si * lx[k] + co * ly[k]);
+                ctx.moveTo(px + rp, py);
+                ctx.arc(px, py, rp, 0, 6.2832);
+              }
+              ctx.fill();
+            };
+            dot(sim.wvx, sim.wvy, C["wheel-2"]);
+            dot(sim.wcx, sim.wcy, C.wheel);
+            // rotation arrow
+            if (Math.abs(sim.Wz) > 0) {
+              const R0 = 0.55 * p.R * view.s,
+                cx = PX(xc),
+                cy = PY(sim.Yc),
+                ccw = sim.Wz > 0;
+              ctx.strokeStyle = C.ejecta;
+              ctx.lineWidth = 2 * view.dpr;
+              ctx.beginPath();
+              const a0 = -2.4,
+                a1 = -0.8;
+              ctx.arc(cx, cy, R0, a0, a1, false);
+              ctx.stroke();
+              const ae = ccw ? a0 : a1,
+                ex = cx + R0 * Math.cos(ae),
+                ey = cy + R0 * Math.sin(ae),
+                tdir = ccw ? -1 : 1;
+              const tx = -Math.sin(ae) * tdir,
+                ty = Math.cos(ae) * tdir,
+                h = 6 * view.dpr;
+              ctx.fillStyle = C.ejecta;
+              ctx.beginPath();
+              ctx.moveTo(ex + tx * h, ey + ty * h);
+              ctx.lineTo(ex - ty * h * 0.6, ey + tx * h * 0.6);
+              ctx.lineTo(ex + ty * h * 0.6, ey - tx * h * 0.6);
+              ctx.fill();
+            }
+          }
+        }
+      }
+      // -------------------------------------------------------------- charts
+      const CHARTS = [
+        [
+          "cSettle",
+          "Bed settling",
+          "Mean and maximum grain speed [m/s], log scale; dashed lines are the tolerances",
+        ],
+        [
+          "cSinkX",
+          "Sinkage vs travel",
+          "Sinkage [mm] against distance travelled [mm]",
+        ],
+        ["cSink", "Sinkage vs time", "Sinkage [mm]; time from wheel release"],
+        ["cSlip", "Slip", "Slip ratio [–]"],
+        [
+          "cDP",
+          "Drawbar pull",
+          "Soil force along the travel direction [N/m]; thick line is smoothed",
+        ],
+        ["cTq", "Driving torque", "Torque needed to keep ω [N·m/m]"],
+        [
+          "cVel",
+          "Wheel velocity",
+          "Forward (blue) and vertical (orange) speed [m/s]",
+        ],
+        [
+          "cFy",
+          "Vertical soil reaction",
+          "Soil force on wheel [N/m]; dashed line is wheel load",
+        ],
+        ["cAir", "Airborne fines", "Fines currently in flight [count]"],
+        [
+          "cHist",
+          "Ejecta flight distance",
+          "Count against distance [mm]; negative = thrown behind the wheel",
+        ],
+        [
+          "cBall",
+          "Ejecta flight time vs vacuum ballistics",
+          "DEM flight time [s] against ballistic prediction [s]; red line 1:1",
+        ],
+        [
+          "cLaunch",
+          "Ejecta launch speed vs distance",
+          "Flight distance [mm] against launch speed [m/s]",
+        ],
+      ];
+      function buildCharts() {
+        const root = $("charts");
+        for (const [id, t, d] of CHARTS) {
+          const e = document.createElement("div");
+          e.className = "chart";
+          e.innerHTML =
+            "<h3>" +
+            t +
+            "</h3><p>" +
+            d +
+            '</p><canvas id="' +
+            id +
+            '"></canvas>';
+          root.appendChild(e);
+        }
+      }
+      function frameAxes(c, lo, hi, xlo, xhi, opt = {}) {
+        const x = c.getContext("2d"),
+          W = c.width,
+          H = c.height,
+          d = view.dpr;
+        const l = 46 * d,
+          r = 8 * d,
+          t = 6 * d,
+          b = 18 * d;
+        const X = (v) => l + ((W - l - r) * (v - xlo)) / (xhi - xlo),
+          Y = (v) => t + (H - t - b) * (1 - (v - lo) / (hi - lo));
+        x.font = 11 * d + "px Barlow, system-ui, sans-serif";
+        x.fillStyle = C.muted;
+        x.strokeStyle = C.line;
+        x.lineWidth = d;
+        x.beginPath();
+        x.moveTo(l, t);
+        x.lineTo(l, H - b);
+        x.lineTo(W - r, H - b);
+        x.stroke();
+        if (lo < 0 && hi > 0 && !opt.logy) {
+          x.setLineDash([3 * d, 3 * d]);
+          x.beginPath();
+          x.moveTo(l, Y(0));
+          x.lineTo(W - r, Y(0));
+          x.stroke();
+          x.setLineDash([]);
+        }
+        const fy = (v) =>
+          opt.logy
+            ? "1e" + v.toFixed(0)
+            : Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0)
+              ? v.toExponential(1)
+              : v.toFixed(opt.dec ?? 2);
+        x.textAlign = "right";
+        x.fillText(fy(hi), l - 4 * d, t + 9 * d);
+        x.fillText(fy(lo), l - 4 * d, H - b);
+        const fx = (v) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
+        x.textAlign = "left";
+        x.fillText(fx(xlo), l, H - 4 * d);
+        x.textAlign = "right";
+        x.fillText(fx(xhi) + (opt.xu || ""), W - r, H - 4 * d);
+        return { x, X, Y, d, l, r, t, b, W, H };
+      }
+      function range(arrs, pad = 0.08) {
+        let lo = Infinity,
+          hi = -Infinity;
+        for (const a of arrs)
+          for (const v of a)
+            if (isFinite(v)) {
+              if (v < lo) lo = v;
+              if (v > hi) hi = v;
+            }
+        if (!isFinite(lo)) {
+          lo = 0;
+          hi = 1;
+        }
+        if (hi - lo < 1e-12) {
+          hi += 0.5;
+          lo -= 0.5;
+        }
+        const p = (hi - lo) * pad;
+        return [lo - p, hi + p];
+      }
+      function lineChart(id, xs, series, opt = {}) {
+        const c = $(id);
+        c.getContext("2d").clearRect(0, 0, c.width, c.height);
+        if (!xs || xs.length < 2) return;
+        const tr = opt.logy ? (v) => (v > 0 ? Math.log10(v) : NaN) : (v) => v;
+        const vals = series.map((s) => s.v.map(tr));
+        const hl = (opt.hlines || []).map((h) => tr(h.y));
+        let [lo, hi] = range(vals.concat([hl]));
+        if (opt.lo !== undefined) lo = Math.min(lo, opt.lo);
+        if (opt.hi !== undefined) hi = Math.max(hi, opt.hi);
+        if (opt.logy) {
+          lo = Math.floor(lo);
+          hi = Math.ceil(hi);
+        }
+        let [xlo, xhi] = range([xs], 0);
+        if (opt.x0 !== undefined) xlo = Math.min(xlo, opt.x0);
+        const A = frameAxes(c, lo, hi, xlo, xhi, opt),
+          x = A.x;
+        (opt.vlines || []).forEach((v) => {
+          if (v > xlo && v < xhi) {
+            x.strokeStyle = C.line;
+            x.beginPath();
+            x.moveTo(A.X(v), A.t);
+            x.lineTo(A.X(v), A.H - A.b);
+            x.stroke();
+          }
+        });
+        (opt.hlines || []).forEach((h, k) => {
+          const yv = hl[k];
+          if (!isFinite(yv)) return;
+          x.strokeStyle = h.c;
+          x.setLineDash([4 * A.d, 3 * A.d]);
+          x.beginPath();
+          x.moveTo(A.l, A.Y(yv));
+          x.lineTo(A.W - A.r, A.Y(yv));
+          x.stroke();
+          x.setLineDash([]);
+        });
+        series.forEach((s, k) => {
+          const v = vals[k];
+          x.strokeStyle = s.c;
+          x.lineWidth = (s.w || 1.4) * A.d;
+          x.globalAlpha = s.a || 1;
+          x.beginPath();
+          let pen = false;
+          for (let i = 0; i < xs.length; i++) {
+            if (!isFinite(v[i]) || !isFinite(xs[i])) {
+              pen = false;
+              continue;
+            }
+            const px = A.X(xs[i]),
+              py = A.Y(v[i]);
+            if (!pen) {
+              x.moveTo(px, py);
+              pen = true;
+            } else x.lineTo(px, py);
+          }
+          x.stroke();
+          x.globalAlpha = 1;
+        });
+      }
+      function histChart(id, vals, nb = 36) {
+        const c = $(id);
+        c.getContext("2d").clearRect(0, 0, c.width, c.height);
+        if (vals.length < 2) return;
+        let [lo, hi] = range([vals], 0.02);
+        const w = (hi - lo) / nb,
+          cnt = new Array(nb).fill(0);
+        for (const v of vals) {
+          cnt[Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / w)))]++;
+        }
+        const A = frameAxes(c, 0, Math.max(...cnt) * 1.05, lo, hi, { dec: 0 }),
+          x = A.x;
+        x.fillStyle = C.s1;
+        for (let k = 0; k < nb; k++) {
+          const x0 = A.X(lo + k * w),
+            x1 = A.X(lo + (k + 1) * w),
+            y0 = A.Y(cnt[k]);
+          x.fillRect(
+            x0 + 0.5 * A.d,
+            y0,
+            Math.max(x1 - x0 - A.d, 1),
+            A.Y(0) - y0,
+          );
+        }
+        if (lo < 0 && hi > 0) {
+          x.strokeStyle = C.s2;
+          x.beginPath();
+          x.moveTo(A.X(0), A.t);
+          x.lineTo(A.X(0), A.H - A.b);
+          x.stroke();
+        }
+      }
+      function scatterChart(id, xs, ys, opt = {}) {
+        const c = $(id);
+        c.getContext("2d").clearRect(0, 0, c.width, c.height);
+        if (xs.length < 2) return;
+        let [lo, hi] = range([ys]),
+          [xlo, xhi] = range([xs]);
+        if (opt.oneToOne) {
+          lo = xlo = Math.min(0, lo, xlo);
+          hi = xhi = Math.max(hi, xhi);
+        }
+        const A = frameAxes(c, lo, hi, xlo, xhi, { dec: opt.dec ?? 3 }),
+          x = A.x;
+        x.fillStyle = C.s1;
+        x.globalAlpha = 0.55;
+        const rr = 1.6 * A.d;
+        for (let i = 0; i < xs.length; i++) {
+          x.fillRect(A.X(xs[i]) - rr, A.Y(ys[i]) - rr, 2 * rr, 2 * rr);
+        }
+        x.globalAlpha = 1;
+        if (opt.oneToOne) {
+          x.strokeStyle = C.s2;
+          x.lineWidth = 1.2 * A.d;
+          x.beginPath();
+          x.moveTo(A.X(lo), A.Y(lo));
+          x.lineTo(A.X(hi), A.Y(hi));
+          x.stroke();
+        }
+      }
+      function smooth(a, n = 6) {
+        const o = new Array(a.length);
+        for (let i = 0; i < a.length; i++) {
+          let s = 0,
+            c = 0;
+          for (
+            let k = Math.max(0, i - n);
+            k <= Math.min(a.length - 1, i + n);
+            k++
+          ) {
+            if (isFinite(a[k])) {
+              s += a[k];
+              c++;
+            }
+          }
+          o[i] = c ? s / c : NaN;
+        }
+        return o;
+      }
+      function steady(arr) {
+        const L = sim.log.t;
+        if (sim.tDriveStart === null) return NaN;
+        const t0 = sim.tDriveStart,
+          t1 = sim.tStop ?? L[L.length - 1],
+          a = t0 + 0.5 * (t1 - t0);
+        let s = 0,
+          c = 0;
+        for (let k = 0; k < L.length; k++)
+          if (L[k] > a && L[k] <= t1 && isFinite(arr[k])) {
+            s += arr[k];
+            c++;
+          }
+        return c ? s / c : NaN;
+      }
+      const f = (v, d = 1) => (v !== null && isFinite(v) ? v.toFixed(d) : "–");
+      function updateUI() {
+        const st = $("status");
+        if (err) {
+          st.innerHTML = '<b style="color:var(--bad)">' + err + "</b>";
+        } else if (sim) {
+          const names = {
+            deposit: "Depositing bed",
+            final: "Final settling at test gravity",
+            ready: "Bed settled. Wheel parked",
+            drop: "Wheel dropped, coming to rest",
+            drive: "Driving",
+            coast: "Wheel stopped, ejecta landing",
+            done: "Finished",
+          };
+          let s =
+            "<b>" +
+            names[sim.phase] +
+            "</b>, t = " +
+            sim.t.toFixed(3) +
+            " s, " +
+            sim.N +
+            " grains, Δt = " +
+            (sim.dt * 1e6).toFixed(1) +
+            " µs, seed " +
+            sim.seedUsed;
+          if (sim.phase === "deposit" || sim.phase === "final")
+            s +=
+              ", mean speed " +
+              f((sim.vmNow || 0) * 1e3, 2) +
+              " mm/s, max " +
+              f((sim.vxNow || 0) * 1e3, 2) +
+              " mm/s";
+          if (sim.phase === "ready" && !sim.p.autoRelease)
+            s += ". Press Release wheel.";
+          if (sim.halted)
+            s +=
+              '<br><span style="color:var(--warn)">' + sim.halted + "</span>";
+          if (sim.stopReason && (sim.phase === "coast" || sim.phase === "done"))
+            s += ". " + sim.stopReason;
+          st.innerHTML = s;
+        }
+        $("btnRelease").disabled = !(sim && sim.phase === "ready");
+        $("btnRerun").disabled =
+          !sim || !sim.bedSnap || bedChanged() || $("btnBed").disabled;
+        if (!sim) return;
+        const L = sim.log,
+          last = (a) => (a.length ? a[a.length - 1] : NaN),
+          ev = sim.ev,
+          wh = sim.wheelOn;
+        const cells = [
+          ["Grains in bed", String(sim.N)],
+          [
+            "Bed settled after",
+            sim.tBedReady !== undefined ? f(sim.tBedReady, 2) + " s" : "–",
+          ],
+          [
+            "2D areal porosity",
+            sim.porosity !== undefined ? f(sim.porosity, 3) : "–",
+          ],
+          ["Settled surface height", sim.Hs ? f(sim.Hs * 1e3) + " mm" : "–"],
+          ["Wheel load", f(sim.p.wheelMass * sim.p.g, 1) + " N/m"],
+          [
+            "Rotation",
+            sim.p.direction === "ccw" ? "Counterclockwise" : "Clockwise",
+          ],
+          ["Sinkage now", wh ? f(last(L.sink)) + " mm" : "–"],
+          ["Travel", wh ? f(last(L.dist) * 1e3, 0) + " mm" : "–"],
+          ["Slip, steady", f(steady(L.slip), 3)],
+          ["Drawbar pull, steady", f(steady(L.dp)) + " N/m"],
+          ["Torque, steady", f(steady(L.tq), 3) + " N·m/m"],
+          ["Sinkage, steady", f(steady(L.sink)) + " mm"],
+          ["Airborne fines", wh ? String(sim.nAir) : "–"],
+          ["Ejecta flights", String(ev.n)],
+          [
+            "Mean flight distance",
+            ev.n ? f((ev.sumAbs / ev.n) * 1e3) + " mm" : "–",
+          ],
+          ["Longest flight distance", ev.n ? f(ev.maxAbs * 1e3) + " mm" : "–"],
+          [
+            "Thrown behind wheel",
+            ev.n ? f((100 * ev.rear) / ev.n, 0) + " %" : "–",
+          ],
+          ["Longest flight time", ev.n ? f(ev.maxTf, 3) + " s" : "–"],
+          ["Highest apex", ev.n ? f(ev.maxApex * 1e3) + " mm" : "–"],
+          [
+            "Ejecta settled after stop",
+            sim.settleTime !== null ? f(sim.settleTime, 3) + " s" : "–",
+          ],
+        ];
+        $("readout").innerHTML = cells
+          .map(([k, v]) => "<div><span>" + k + "</span><b>" + v + "</b></div>")
+          .join("");
+        const S = sim.settleLog;
+        lineChart(
+          "cSettle",
+          S.t,
+          [
+            { v: S.vm, c: C.s1 },
+            { v: S.vx, c: C.s2 },
+          ],
+          {
+            logy: true,
+            hlines: [
+              { y: sim.p.vMeanTol, c: C.s1 },
+              { y: sim.p.vMaxTol, c: C.s2 },
+            ],
+            xu: " s",
+          },
+        );
+        const T = L.t,
+          vl = [sim.tDriveStart, sim.tStop].filter(
+            (v) => v !== null && v !== undefined,
+          );
+        lineChart(
+          "cSinkX",
+          L.dist.map((v) => v * 1e3),
+          [{ v: L.sink, c: C.s1 }],
+          { xu: " mm", dec: 1 },
+        );
+        lineChart("cSink", T, [{ v: L.sink, c: C.s1 }], {
+          vlines: vl,
+          xu: " s",
+          x0: 0,
+          dec: 1,
+        });
+        lineChart("cSlip", T, [{ v: L.slip, c: C.s1 }], {
+          vlines: vl,
+          xu: " s",
+          x0: 0,
+          lo: 0,
+          hi: 1,
+        });
+        lineChart(
+          "cDP",
+          T,
+          [
+            { v: L.dp, c: C.s2, w: 0.8, a: 0.35 },
+            { v: smooth(L.dp), c: C.s2, w: 1.6 },
+          ],
+          { vlines: vl, xu: " s", x0: 0, dec: 1 },
+        );
+        lineChart(
+          "cTq",
+          T,
+          [
+            { v: L.tq, c: C.s3, w: 0.8, a: 0.35 },
+            { v: smooth(L.tq), c: C.s3, w: 1.6 },
+          ],
+          { vlines: vl, xu: " s", x0: 0, dec: 3 },
+        );
+        lineChart(
+          "cVel",
+          T,
+          [
+            { v: L.vx, c: C.s1 },
+            { v: L.vy, c: C.s2 },
+          ],
+          { vlines: vl, xu: " s", x0: 0, dec: 3 },
+        );
+        lineChart("cFy", T, [{ v: smooth(L.fy, 3), c: C.s4 }], {
+          vlines: vl,
+          xu: " s",
+          x0: 0,
+          hlines: [{ y: sim.p.wheelMass * sim.p.g, c: C.muted }],
+          dec: 1,
+        });
+        lineChart("cAir", T, [{ v: L.air, c: C.s2 }], {
+          vlines: vl,
+          xu: " s",
+          x0: 0,
+          lo: 0,
+          dec: 0,
+        });
+        const E = sim.events;
+        histChart(
+          "cHist",
+          E.map((e) => e.dx * 1e3),
+        );
+        scatterChart(
+          "cBall",
+          E.map((e) => e.tb),
+          E.map((e) => e.tf),
+          { oneToOne: true },
+        );
+        scatterChart(
+          "cLaunch",
+          E.map((e) => e.v0),
+          E.map((e) => e.dx * 1e3),
+          { dec: 1 },
+        );
+      }
+      function frame() {
+        if (running && sim && !err) {
+          try {
+            if ($("speed").value === "slow") {
+              for (let k = 0; k < 20; k++)
+                if (!sim.advance()) {
+                  running = false;
+                  break;
+                }
+            } else {
+              const t0 = performance.now();
+              outer: while (performance.now() - t0 < 22) {
+                for (let k = 0; k < 25; k++)
+                  if (!sim.advance()) {
+                    running = false;
+                    break outer;
+                  }
+              }
+            }
+          } catch (e) {
+            err = e.message;
+            running = false;
+          }
+          if (!running) setPauseLabel();
+        }
+        draw();
+        if (frameNo++ % 4 === 0) updateUI();
+        requestAnimationFrame(frame);
+      }
+      buildControls();
+      buildCharts();
+      readColours();
+      refreshChecks();
+      resize();
+      newBed();
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
