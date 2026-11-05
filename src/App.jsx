@@ -356,6 +356,11 @@ export default function App() {
     setBadInputs((prev) => ({ ...prev, [k]: isBad }));
   };
 
+  const handleApplyPreset = (presetConfig) => {
+    setParams((prev) => ({ ...prev, ...presetConfig }));
+    setBadInputs({});
+  };
+
   // Animation frame loop
   useEffect(() => {
     let animId;
@@ -437,6 +442,7 @@ export default function App() {
         params={params}
         badInputs={badInputs}
         onChange={handleParamChange}
+        onApplyPreset={handleApplyPreset}
       />
       <main>
         <Toolbar
