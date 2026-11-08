@@ -406,7 +406,7 @@ export const SCHEMA = [
   },
   {
     k: 'slip',
-    label: 'Imposed slip (imposed-slip mode)',
+    label: 'Target slip ratio',
     unit: '',
     sc: 1,
     lvl: 'wheel',
