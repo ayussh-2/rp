@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "plot": "python src/plot/src/plot/main.py"
+    "plot": "uv run --directory src/plot python src/plot/main.py",
+    "benchmark": "uv run --directory src/plot benchmark",
+    "benchmark:headed": "uv run --directory src/plot benchmark --headed"
   },
   "dependencies": {
     "react": "^19.3.1",
