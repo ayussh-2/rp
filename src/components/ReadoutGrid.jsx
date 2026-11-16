@@ -28,6 +28,11 @@ export function ReadoutGrid({ sim }) {
   const last = (a) => (a && a.length ? a[a.length - 1] : NaN);
   const ev = sim.ev || { n: 0, sumAbs: 0, maxAbs: 0, rear: 0, maxTf: 0, maxApex: 0 };
   const wh = !!sim.wheelOn;
+  const w3D = sim.p.wheelWidth3D || 0.08;
+  const wload2D =
+    sim.p.wheelLoad !== undefined ? sim.p.wheelLoad : sim.p.wheelMass * sim.p.g;
+  const dpSteady = computeSteady(sim, L.dp);
+  const tqSteady = computeSteady(sim, L.tq);
 
   const cells = [
     ['Grains in bed', String(sim.N)],
@@ -40,17 +45,42 @@ export function ReadoutGrid({ sim }) {
       sim.porosity !== undefined ? formatNum(sim.porosity, 3) : '–',
     ],
     ['Settled surface height', sim.Hs ? formatNum(sim.Hs * 1e3) + ' mm' : '–'],
-    ['Wheel load', formatNum(sim.p.wheelMass * sim.p.g, 1) + ' N/m'],
+    [
+      'Wheel load (2D / 3D)',
+      formatNum(wload2D, 1) + ' N/m (' + formatNum(wload2D * w3D, 2) + ' N)',
+    ],
     [
       'Rotation',
       sim.p.direction === 'ccw' ? 'Counterclockwise' : 'Clockwise',
     ],
-    ['Sinkage now', wh ? formatNum(last(L.sink)) + ' mm' : '–'],
+    [
+      'Static sinkage baseline',
+      sim.staticSinkage !== null && sim.staticSinkage !== undefined
+        ? formatNum(sim.staticSinkage * 1e3, 1) + ' mm'
+        : '–',
+    ],
+    ['Dynamic sinkage now', wh ? formatNum(last(L.sink)) + ' mm' : '–'],
     ['Travel', wh ? formatNum(last(L.dist) * 1e3, 0) + ' mm' : '–'],
     ['Slip, steady', formatNum(computeSteady(sim, L.slip), 3)],
-    ['Drawbar pull, steady', formatNum(computeSteady(sim, L.dp)) + ' N/m'],
-    ['Torque, steady', formatNum(computeSteady(sim, L.tq), 3) + ' N·m/m'],
-    ['Sinkage, steady', formatNum(computeSteady(sim, L.sink)) + ' mm'],
+    [
+      'Drawbar pull (2D / 3D)',
+      isFinite(dpSteady)
+        ? formatNum(dpSteady, 1) +
+          ' N/m (' +
+          formatNum(dpSteady * w3D, 2) +
+          ' N)'
+        : '–',
+    ],
+    [
+      'Torque (2D / 3D)',
+      isFinite(tqSteady)
+        ? formatNum(tqSteady, 3) +
+          ' N·m/m (' +
+          formatNum(tqSteady * w3D, 3) +
+          ' N·m)'
+        : '–',
+    ],
+    ['Dynamic sinkage, steady', formatNum(computeSteady(sim, L.sink)) + ' mm'],
     ['Airborne fines', wh ? String(sim.nAir) : '–'],
     ['Ejecta flights', String(ev.n)],
     [

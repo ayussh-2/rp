@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 
 PRESETS = {
-    "rashid": {"mass": 20.0, "gravity": 1.62, "radius": 0.10},
-    "nakashima_earth": {"mass": 20.0, "gravity": 9.81, "radius": 0.10},
-    "niksirat_lunar": {"mass": 121.2, "gravity": 1.62, "radius": 0.10},
-    "omura_slope": {"mass": 20.0, "gravity": 1.62, "radius": 0.10},
-    "takehana_toyoura": {"mass": 20.0, "gravity": 9.81, "radius": 0.10},
+    "rashid": {"mass": 31.6358, "gravity": 1.62, "radius": 0.10, "load": 51.25, "width_3d": 0.08},
+    "nakashima_earth": {"mass": 20.0, "gravity": 9.81, "radius": 0.10, "load": 196.2, "width_3d": 0.10},
+    "niksirat_lunar": {"mass": 121.2, "gravity": 1.62, "radius": 0.10, "load": 196.2, "width_3d": 0.10},
+    "omura_slope": {"mass": 20.0, "gravity": 1.62, "radius": 0.10, "load": 32.4, "width_3d": 0.10},
+    "takehana_toyoura": {"mass": 20.0, "gravity": 9.81, "radius": 0.10, "load": 196.2, "width_3d": 0.10},
 }
 
 plot_dir = Path(__file__).resolve().parents[2]
@@ -40,7 +40,7 @@ if ACTIVE_PRESET not in PRESETS:
 WHEEL_MASS = PRESETS[ACTIVE_PRESET]["mass"]
 GRAVITY = PRESETS[ACTIVE_PRESET]["gravity"]
 WHEEL_RADIUS = PRESETS[ACTIVE_PRESET]["radius"]
-WHEEL_LOAD = WHEEL_MASS * GRAVITY
+WHEEL_LOAD = PRESETS[ACTIVE_PRESET].get("load", WHEEL_MASS * GRAVITY)
 
 csv_dir = plot_dir / "csv" / ACTIVE_PRESET if folder_flags else Path.cwd()
 csv_files = glob.glob(str(csv_dir / "*.csv"))

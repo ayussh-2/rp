@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "plot": "uv run --directory src/plot python src/plot/main.py",
     "benchmark": "uv run --directory src/plot benchmark",
-    "benchmark:headed": "uv run --directory src/plot benchmark --headed"
+    "benchmark:headed": "uv run --directory src/plot benchmark --headed",
+    "benchmark:nakashima": "uv run --directory src/plot benchmark --mode nakashima"
   },
   "dependencies": {
     "react": "^19.3.1",

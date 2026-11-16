@@ -10,11 +10,19 @@ export function estimate(p) {
     Math.PI *
     ((1 - p.finesFrac) * (mr * mr + vr) +
       p.finesFrac * p.rFine * p.rFine);
-  const Ngen = ((p.level ? 1.2 : 1.0) * p.L * p.H * 0.83) / ar;
-  const Nbed = (p.L * p.H * 0.83) / ar;
+  const targetPhi =
+    p.targetBulkDensity && p.rho
+      ? p.targetBulkDensity / p.rho
+      : 1 - (p.por || 0.46);
+  const Ngen = ((p.level ? 1.2 : 1.0) * p.L * p.H * targetPhi) / ar;
+  const Nbed = (p.L * p.H * targetPhi) / ar;
   const rmin = Math.min(p.rMin, p.finesFrac > 0 ? p.rFine : Infinity);
   const mmin = p.rho * Math.PI * rmin * rmin;
-  const dt = p.dtFactor * Math.PI * Math.sqrt((0.5 * mmin) / p.kn);
+  const kn = p.E && p.nu ? p.E / (1 - p.nu * p.nu) : p.kn;
+  const dt =
+    p.dt !== undefined && p.dt > 0
+      ? p.dt
+      : p.dtFactor * Math.PI * Math.sqrt((0.5 * mmin) / kn);
   return { Ngen, Nbed, dt, d50: 2 * mr };
 }
 
@@ -81,7 +89,7 @@ export function validate(p, badInputs = {}) {
       'Fines are not smaller than the coarse grains. They are still tracked as ejecta.'
     );
   }
-  if (est.Ngen > 8000) {
+  if (est.Ngen > 30000) {
     W.push(
       'About ' +
         Math.round(est.Ngen) +
@@ -89,8 +97,9 @@ export function validate(p, badInputs = {}) {
     );
   }
 
-  const W0 = p.wheelMass * p.g;
-  const ovl = W0 / (4 * p.kn);
+  const W0 = p.wheelLoad !== undefined ? p.wheelLoad : p.wheelMass * p.g;
+  const knVal = p.E && p.nu ? p.E / (1 - p.nu * p.nu) : p.kn;
+  const ovl = W0 / (4 * knVal);
   if (ovl > 0.05 * p.rMin) {
     W.push(
       'Wheel load gives contact overlaps near ' +

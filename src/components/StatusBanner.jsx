@@ -1,10 +1,11 @@
 import { formatNum } from '../utils/math';
 
 const PHASE_NAMES = {
+  settling: 'Fast-Settling Phase (Relaxed dt, Heavy Damping)',
   deposit: 'Depositing bed',
   final: 'Final settling at test gravity',
   ready: 'Bed settled. Wheel parked',
-  drop: 'Wheel dropped, coming to rest',
+  drop: 'Static settling under gravity (1.0 s)',
   drive: 'Driving',
   coast: 'Wheel stopped, ejecta landing',
   done: 'Finished',
@@ -24,7 +25,10 @@ export function StatusBanner({ sim, err }) {
   }
 
   const phaseName = PHASE_NAMES[sim.phase] || sim.phase;
-  const isSettling = sim.phase === 'deposit' || sim.phase === 'final';
+  const isSettling =
+    sim.phase === 'settling' ||
+    sim.phase === 'deposit' ||
+    sim.phase === 'final';
 
   return (
     <div className="status" id="status">

@@ -1,5 +1,8 @@
-import { DEFAULTS } from '../constants/defaults';
-import { mulberry32, triangular } from '../utils/math';
+import { DEFAULTS } from '../constants/defaults.js';
+import { mulberry32, triangular } from '../utils/math.js';
+
+export const PHASE_SETTLING = 'settling';
+export const PHASE_DRIVE = 'drive';
 
 const SL = 12; // contact-history slots per grain
 
@@ -13,6 +16,34 @@ export class RoverDEM {
     this.rng = mulberry32(this.seedUsed);
     this.periodic = this.p.boundary === 'periodic';
     this.hL = 0.5 * this.p.L;
+
+    // Contact model physics: Young's Modulus E and Poisson's ratio nu
+    if (this.p.E !== undefined && this.p.nu !== undefined) {
+      const nu = this.p.nu;
+      this.kn = this.p.E / (1 - nu * nu);
+      this.kt = this.kn * ((1 - nu) / (1 - 0.5 * nu));
+    } else {
+      this.kn = this.p.kn;
+      this.kt = (this.p.ktRatio || 0.5) * this.kn;
+    }
+
+    // Cohesion in Pa (input parameter in kN/m²)
+    this.cohesionPa = (this.p.cohesion || 0) * 1000;
+
+    // Fast-settling vs benchmark physics settings
+    this.dtBenchmark = this.p.dtBenchmark || this.p.dt || 1.5e-5;
+    this.dtSettling = this.p.dtSettling || 3.0e-5;
+    this.enBenchmark = this.p.enBenchmark || this.p.en || 0.30;
+    this.enSettling = this.p.enSettling !== undefined ? this.p.enSettling : 0.01;
+
+    const leBench = Math.log(Math.max(this.enBenchmark, 1e-3));
+    this.beta2Benchmark =
+      2 * (-leBench / Math.sqrt(leBench * leBench + Math.PI * Math.PI));
+
+    const leSettle = Math.log(Math.max(this.enSettling, 1e-3));
+    this.beta2Settling =
+      2 * (-leSettle / Math.sqrt(leSettle * leSettle + Math.PI * Math.PI));
+
     this.buildWheel();
     this.buildBed();
   }
@@ -70,6 +101,14 @@ export class RoverDEM {
     this.wpx = new Float64Array(this.Nw);
     this.wpy = new Float64Array(this.Nw);
 
+    // Compute exact vertical offset from wheel center to the lowest particle bottom
+    let minRelY = 0;
+    for (let k = 0; k < cx.length; k++) {
+      const yBot = cy[k] - rp;
+      if (yBot < minRelY) minRelY = yBot;
+    }
+    this.bottomOffset = -minRelY;
+
     const vx = [];
     const vy = [];
     const Rh = Math.max(p.hubFrac * R, rp);
@@ -100,63 +139,128 @@ export class RoverDEM {
   buildBed() {
     const p = this.p;
     const rng = this.rng;
-    const big = Math.max(p.rMax, p.rFine);
-    const s0 = 2 * big * 1.05;
-    let nCol, s, xs;
+    const useFastSettling = p.fastSettling !== false;
 
-    if (this.periodic) {
-      nCol = Math.max(3, Math.floor(p.L / s0));
-      s = p.L / nCol;
-      xs = 0.5 * s;
+    let X = [];
+    let Y = [];
+    let R = [];
+    let F = [];
+
+    if (useFastSettling) {
+      // 1. Optimal Dense Spawning:
+      // Spawn grains in a tightly packed staggered hexagonal grid starting immediately
+      // at the bottom and filling up to the target bed height H (0.14 m).
+      const targetN = p.targetGrains || 5000;
+      const rGrain = p.rMin || 2.0e-3;
+      const dGrain = 2 * rGrain;
+      const clearance = 1.005; // slight clearance prevents artificial initial overlap/strain
+      const sx0 = dGrain * clearance;
+      let nCols, dx, xs;
+
+      if (this.periodic) {
+        nCols = Math.max(3, Math.floor(p.L / sx0));
+        dx = p.L / nCols;
+        xs = 0.5 * dx;
+      } else {
+        nCols = Math.max(1, Math.floor((p.L - 2.4 * rGrain) / sx0) + 1);
+        dx = (p.L - 2.4 * rGrain) / nCols;
+        xs = 1.2 * rGrain;
+      }
+
+      const nRows = Math.ceil(targetN / nCols);
+      // Span rows from bottom wall (y = rGrain) up to target bed height H (0.14 m)
+      const dy = (p.H - rGrain) / Math.max(1, nRows - 1);
+
+      for (let row = 0; row < nRows && X.length < targetN; row++) {
+        const yPos = rGrain + row * dy;
+        const xOffset = (row % 2 === 1) ? 0.5 * dx : 0;
+        for (let col = 0; col < nCols && X.length < targetN; col++) {
+          let xPos = xs + col * dx + xOffset;
+          if (this.periodic) {
+            xPos = this.wrap(xPos);
+          }
+          X.push(xPos);
+          Y.push(yPos);
+          R.push(rGrain);
+          F.push(0);
+        }
+      }
+
+      this.yGenTop = p.H + rGrain;
     } else {
-      nCol = Math.max(1, Math.floor((p.L - 2.4 * big) / s0) + 1);
-      s = s0;
-      xs = 1.2 * big;
+      // Legacy deposition fallback
+      const big = Math.max(p.rMax, p.rMin, p.rFine || p.rMin);
+      const s0 = 2 * big * 1.05;
+      let nCol, s, xs;
+
+      if (this.periodic) {
+        nCol = Math.max(3, Math.floor(p.L / s0));
+        s = p.L / nCol;
+        xs = 0.5 * s;
+      } else {
+        nCol = Math.max(1, Math.floor((p.L - 2.4 * big) / s0) + 1);
+        s = s0;
+        xs = 1.2 * big;
+      }
+
+      const targetPhi =
+        p.targetBulkDensity && p.rho
+          ? p.targetBulkDensity / p.rho
+          : 1 - (p.por || 0.46);
+      const target = (p.level ? 1.2 : 1.0) * p.L * p.H * targetPhi;
+      let area = 0;
+      let yrow = 1.2 * big;
+
+      const isUniform =
+        p.rMin === p.rMax ||
+        p.finesFrac === 0 ||
+        (p.rMin === p.rMean && p.rMean === p.rMax);
+
+      while (area < target) {
+        for (let c = 0; c < nCol; c++) {
+          let rr;
+          let isF = false;
+          if (isUniform) {
+            rr = p.rMin;
+          } else {
+            isF = rng() < p.finesFrac;
+            rr = isF ? p.rFine : triangular(rng(), p.rMin, p.rMean, p.rMax);
+          }
+          X.push(this.wrap(xs + c * s + (rng() - 0.5) * 0.06 * s));
+          Y.push(yrow + (rng() - 0.5) * 0.03 * s);
+          R.push(rr);
+          F.push(isF ? 1 : 0);
+          area += Math.PI * rr * rr;
+        }
+        yrow += s;
+        if (X.length > 300000) {
+          throw new Error(
+            'More than 300 000 grains requested. Reduce the bed size or increase grain radii.'
+          );
+        }
+      }
+      this.yGenTop = yrow + big;
     }
 
-    const target = (p.level ? 1.2 : 1.0) * p.L * p.H * 0.83;
-    const X = [];
-    const Y = [];
-    const R = [];
-    const F = [];
-    let area = 0;
-    let yrow = 1.2 * big;
-
-    while (area < target) {
-      for (let c = 0; c < nCol; c++) {
-        const isF = rng() < p.finesFrac;
-        const rr = isF ? p.rFine : triangular(rng(), p.rMin, p.rMean, p.rMax);
-        X.push(this.wrap(xs + c * s + (rng() - 0.5) * 0.06 * s));
-        Y.push(yrow + (rng() - 0.5) * 0.03 * s);
-        R.push(rr);
-        F.push(isF ? 1 : 0);
-        area += Math.PI * rr * rr;
-      }
-      yrow += s;
-      if (X.length > 300000) {
-        throw new Error(
-          'More than 300 000 grains requested. Reduce the bed size or increase grain radii.'
-        );
-      }
-    }
-
-    this.yGenTop = yrow + big;
     this.setParticles(X, Y, R, F);
 
     for (let i = 0; i < this.N; i++) {
-      this.vx[i] = (rng() - 0.5) * 0.02;
+      this.vx[i] = (rng() - 0.5) * 1e-4;
+      this.vy[i] = 0;
+      this.w[i] = 0;
     }
 
-    let mmin = Infinity;
-    for (let i = 0; i < this.N; i++) {
-      mmin = Math.min(mmin, this.m[i]);
+    if (useFastSettling) {
+      this.phase = PHASE_SETTLING;
+      this.dt = this.dtSettling;
+      this.en = this.enSettling;
+      this.beta2 = this.beta2Settling;
+    } else {
+      this.phase = 'deposit';
+      this.dt = this.dtBenchmark;
+      this.en = this.enBenchmark;
+      this.beta2 = this.beta2Benchmark;
     }
-
-    this.dt = p.dtFactor * Math.PI * Math.sqrt((0.5 * mmin) / p.kn);
-    const le = Math.log(Math.max(p.en, 1e-3));
-    this.beta2 = 2 * (-le / Math.sqrt(le * le + Math.PI * Math.PI));
-    this.kn = p.kn;
-    this.kt = p.ktRatio * p.kn;
 
     this.walls = this.periodic
       ? [[0, 0, p.L, 0]]
@@ -166,7 +270,6 @@ export class RoverDEM {
           [p.L, 0, p.L, 50],
         ];
 
-    this.phase = 'deposit';
     this.t = 0;
     this.tPhase = 0;
     this.kPhase = 0;
@@ -174,7 +277,8 @@ export class RoverDEM {
     this.extend = 1;
     this.wheelOn = false;
     this.halted = null;
-    this.settleLog = { t: [], vm: [], vx: [] };
+    this.totalEk = 0;
+    this.settleLog = { t: [], vm: [], vx: [], ek: [] };
     this.resetWheelLogs();
   }
 
@@ -222,10 +326,14 @@ export class RoverDEM {
       slip: [],
       dp: [],
       tq: [],
+      fy: [],
+      dp3D: [],
+      tq3D: [],
+      fy3D: [],
       vx: [],
       vy: [],
-      fy: [],
       air: [],
+      wheelY: [],
     };
     this.events = [];
     this.nextLog = 0;
@@ -247,16 +355,30 @@ export class RoverDEM {
     this.stopReason = '';
     this.tDriveStart = null;
     this.tStop = null;
+    this.wheelRestHeight = null;
+    this.staticSinkage = null;
   }
 
-  kernel(i, j, nx, ny, ov, vrx, vry, meff, mu) {
+  kernel(i, j, nx, ny, ov, vrx, vry, meff, mu, rStar = 0) {
     const tx = -ny;
     const ty = nx;
     const vn = vrx * nx + vry * ny;
     const vt = vrx * tx + vry * ty;
 
-    let fn = this.kn * ov + this.beta2 * Math.sqrt(meff * this.kn) * vn;
-    if (fn < 0) fn = 0;
+    // JKR cohesive contact attraction
+    let f_adh = 0;
+    if (this.cohesionPa > 0 && rStar > 0) {
+      f_adh = this.cohesionPa * 2 * rStar;
+    }
+
+    // Temporary heavy damping during PHASE_SETTLING, benchmark restitution otherwise
+    const beta2 =
+      this.phase === PHASE_SETTLING
+        ? this.beta2Settling
+        : this.beta2Benchmark;
+
+    let fn = this.kn * ov - f_adh + beta2 * Math.sqrt(meff * this.kn) * vn;
+    if (fn < -f_adh) fn = -f_adh;
 
     const b = i * SL;
     const hc = this.hC[i];
@@ -270,8 +392,8 @@ export class RoverDEM {
     }
 
     let st = s0 + vt * this.dt;
-    let ft = -this.kt * st - this.beta2 * Math.sqrt(meff * this.kt) * vt;
-    const lim = mu * fn;
+    let ft = -this.kt * st - beta2 * Math.sqrt(meff * this.kt) * vt;
+    const lim = mu * Math.max(0, fn + f_adh);
 
     if (Math.abs(ft) > lim) {
       ft = Math.sign(ft) * lim;
@@ -433,6 +555,7 @@ export class RoverDEM {
               const nx = dx / d;
               const ny = dy / d;
               const wr = w[i] * r[i] + w[j] * r[j];
+              const rStar = (r[i] * r[j]) / (r[i] + r[j]);
 
               this.kernel(
                 i,
@@ -443,7 +566,8 @@ export class RoverDEM {
                 vx[i] - vx[j] - wr * ny,
                 vy[i] - vy[j] + wr * nx,
                 (m[i] * m[j]) / (m[i] + m[j]),
-                mu
+                mu,
+                rStar
               );
 
               const fn = this._fn;
@@ -492,6 +616,7 @@ export class RoverDEM {
               const vkx = Vx - Wz * ry;
               const vky = Vy + Wz * rx;
               const wr = w[i] * r[i] + Wz * wcr;
+              const rStar = (r[i] * wcr) / (r[i] + wcr);
 
               this.kernel(
                 i,
@@ -502,7 +627,8 @@ export class RoverDEM {
                 vx[i] - vkx - wr * ny,
                 vy[i] - vky + wr * nx,
                 m[i],
-                muW
+                muW,
+                rStar
               );
 
               const fn = this._fn;
@@ -552,6 +678,7 @@ export class RoverDEM {
         const d = Math.sqrt(d2);
         const nx = dx / d;
         const ny = dy / d;
+        const rStar = ri;
 
         this.kernel(
           i,
@@ -562,7 +689,8 @@ export class RoverDEM {
           vx[i] - w[i] * ri * ny,
           vy[i] + w[i] * ri * nx,
           m[i],
-          p.muWall
+          p.muWall,
+          rStar
         );
 
         const fn = this._fn;
@@ -594,6 +722,19 @@ export class RoverDEM {
     this.nC = a3;
 
     const xu = this.xu;
+    const isSettling = this.phase === PHASE_SETTLING;
+    const settleDamp =
+      p.settlingVelocityDamping !== undefined
+        ? p.settlingVelocityDamping
+        : 0.85;
+    const bgDamp =
+      p.backgroundDamping !== undefined
+        ? p.backgroundDamping
+        : p.damping !== undefined
+        ? p.damping
+        : 0.995;
+    const applyBgDamp = bgDamp > 0 && bgDamp < 1;
+
     for (let i = 0; i < N; i++) {
       let Fx = fx[i];
       let Fy = fy[i] - m[i] * g;
@@ -608,6 +749,20 @@ export class RoverDEM {
       vx[i] += (Fx / m[i]) * dt;
       vy[i] += (Fy / m[i]) * dt;
       w[i] += (T / I[i]) * dt;
+
+      // Heavy global velocity damping multiplier during PHASE_SETTLING
+      if (isSettling) {
+        vx[i] *= settleDamp;
+        vy[i] *= settleDamp;
+        w[i] *= settleDamp;
+      }
+
+      // Continuous background damping factor to bleed off accumulating numerical errors
+      if (applyBgDamp) {
+        vx[i] *= bgDamp;
+        vy[i] *= bgDamp;
+        w[i] *= bgDamp;
+      }
 
       const ddx = vx[i] * dt;
       xu[i] += ddx;
@@ -639,6 +794,21 @@ export class RoverDEM {
       if (q > v) v = q;
     }
     return [s / this.N, v];
+  }
+
+  computeTotalKineticEnergy() {
+    let Ek = 0;
+    const N = this.N;
+    const m = this.m;
+    const I = this.I;
+    const vx = this.vx;
+    const vy = this.vy;
+    const w = this.w;
+    for (let i = 0; i < N; i++) {
+      Ek +=
+        0.5 * m[i] * (vx[i] * vx[i] + vy[i] * vy[i]) + 0.5 * I[i] * w[i] * w[i];
+    }
+    return Ek;
   }
 
   settledCheck(tMin) {
@@ -790,7 +960,41 @@ export class RoverDEM {
     this.Xc = this.wrap(x0);
     this.Xu = this.Xc;
     this.X0 = this.Xc;
-    this.Yc = this.surfAt(this.Xc) + this.Rtip + p.dropHeight;
+
+    // 1. Surface Spawn Position:
+    // The lowest point of the wheel (tip of bottom-most grouser) spawns
+    // exactly touching the top of the settled soil bed (~H = 0.14 m) without overlap.
+    const botOffset = this.bottomOffset || this.Rtip;
+    const drop =
+      p.dropHeight !== undefined && p.dropHeight > 0 ? p.dropHeight : 0;
+
+    let surfaceY =
+      this.surf && this.surf.length > 0
+        ? this.surfAt(this.Xc)
+        : this.Hs || p.H;
+
+    // Check grain surface directly under the wheel contact patch at Xc to ensure zero-penetration spawn
+    if (this.x && this.y && this.N > 0) {
+      let maxNear = -Infinity;
+      const rwp = p.rwp || 0.002;
+      for (let i = 0; i < this.N; i++) {
+        const dx = Math.abs(this.mi(this.x[i] - this.Xc));
+        if (dx < (this.r[i] + rwp)) {
+          const top =
+            this.y[i] +
+            Math.sqrt(Math.max(0, Math.pow(this.r[i] + rwp, 2) - dx * dx));
+          if (top > maxNear) maxNear = top;
+        }
+      }
+      if (maxNear > -Infinity && isFinite(maxNear)) {
+        surfaceY = maxNear;
+      }
+    }
+
+    this.Yc = surfaceY + botOffset + drop;
+    this.wheelSpawnSurface = surfaceY;
+    this.wheelSpawnYc = this.Yc;
+
     this.Vx = 0;
     this.Vy = 0;
     this.Wz = 0;
@@ -799,7 +1003,8 @@ export class RoverDEM {
     this.wheelOn = true;
     this.tRelease = this.t;
     this.tPhase = 0;
-    this.phase = 'drop';
+    this.phase = 'drop'; // Static settling phase
+    this.staticSettleT = 0;
     this.contactSeen = false;
     this.restHold = 0;
     this.restT = 0;
@@ -816,9 +1021,49 @@ export class RoverDEM {
     this.air = new Uint8Array(N);
   }
 
+  transitionToDrivePhase() {
+    const p = this.p;
+
+    // 1. CRITICAL: Snap time step back to benchmark (1.5e-5 s)
+    this.dt = this.dtBenchmark;
+
+    // 2. CRITICAL: Restore benchmark Coefficient of Restitution to 0.30
+    this.en = this.enBenchmark;
+    this.beta2 = this.beta2Benchmark;
+
+    // 3. Remove artificial global damping: exiting PHASE_SETTLING removes damping multiplier
+
+    // 4. Level bed if requested & finalize surface geometry
+    if (p.level) this.trim();
+    this.finishBed();
+
+    // 5. Zero residual velocities so bed starts in quiescent state
+    for (let i = 0; i < this.N; i++) {
+      this.vx[i] = 0;
+      this.vy[i] = 0;
+      this.w[i] = 0;
+    }
+
+    // 6. Introduce wheel at surface and allow to settle statically under gravity for 1.0 s
+    if (p.autoRelease) {
+      this.releaseWheel();
+    } else {
+      this.phase = 'ready';
+    }
+  }
+
   rerun(params) {
     const s = this.bedSnap;
     Object.assign(this.p, params);
+    if (this.p.E !== undefined && this.p.nu !== undefined) {
+      const nu = this.p.nu;
+      this.kn = this.p.E / (1 - nu * nu);
+      this.kt = this.kn * ((1 - nu) / (1 - 0.5 * nu));
+    }
+    this.cohesionPa = (this.p.cohesion || 0) * 1000;
+    if (this.p.dt !== undefined && this.p.dt > 0) {
+      this.dt = this.p.dt;
+    }
     this.buildWheel();
     this.setParticles(s.x, s.y, s.r, s.f);
     this.layer.set(s.layer);
@@ -858,6 +1103,45 @@ export class RoverDEM {
   advance() {
     const p = this.p;
     if (this.halted || this.phase === 'done') return false;
+
+    // Fast-Settling Phase: Relaxed dt, heavy kinetic damping, kinetic energy monitoring
+    if (this.phase === PHASE_SETTLING) {
+      this.step(p.depositEarth ? 9.81 : p.g, p.muPrep, p.alphaPrep);
+      const Ek = this.computeTotalKineticEnergy();
+      this.totalEk = Ek;
+      const [vm, vmax] = this.speeds();
+      this.vmNow = vm;
+      this.vxNow = vmax;
+
+      if (this.kPhase % 20 === 0) {
+        this.settleLog.t.push(this.t);
+        this.settleLog.vm.push(vm);
+        this.settleLog.vx.push(vmax);
+        if (this.settleLog.ek) this.settleLog.ek.push(Ek);
+      }
+
+      // Constantly monitor total kinetic energy of the soil bed
+      const ekThreshold =
+        p.ekSettlingTol !== undefined ? p.ekSettlingTol : 1.0e-5;
+      if (
+        this.tPhase >= (p.tSettleMin || 0.01) &&
+        (Ek < ekThreshold || (vm < p.vMeanTol && vmax < p.vMaxTol))
+      ) {
+        this.transitionToDrivePhase();
+      } else if (this.tPhase > p.tSettleMax * this.extend) {
+        this.halted =
+          'Settling has not met the kinetic energy criteria (' +
+          Ek.toExponential(2) +
+          ' J vs tol ' +
+          ekThreshold.toExponential(2) +
+          ' J) after ' +
+          this.tPhase.toFixed(2) +
+          ' s. Press Resume to continue settling.';
+        this.extend++;
+        return false;
+      }
+      return true;
+    }
 
     if (this.phase === 'deposit') {
       this.step(p.depositEarth ? 9.81 : p.g, p.muPrep, p.alphaPrep);
@@ -907,7 +1191,7 @@ export class RoverDEM {
 
     const tw = this.t - this.tRelease;
     if (
-      this.phase === 'drive' &&
+      this.phase === PHASE_DRIVE &&
       (tw - this.tDriveStart >= p.tDrive || this.driveLimitHit())
     ) {
       if (!this.stopReason) this.stopReason = 'Drive duration reached.';
@@ -923,32 +1207,46 @@ export class RoverDEM {
     this.step(p.g, p.mu, 0);
     const dt = this.dt;
     const M = p.wheelMass;
+    const Wload = p.wheelLoad !== undefined ? p.wheelLoad : M * p.g;
     const FW = this.FW;
     const dir = this.dir;
     let om = 0;
 
+    let currentWload = Wload;
     if (this.phase === 'drop') {
       this.Wz = 0;
       this.Vx = 0;
-      if (this.nWc > 0) this.contactSeen = true;
-      if (this.contactSeen) {
-        this.restT += dt;
-        if (Math.abs(this.Vy) < p.vyRestTol) this.restHold += dt;
-        else this.restHold = 0;
-        if (this.restHold >= p.tRestHold || this.restT >= p.tRestMax) {
-          this.phase = 'drive';
-          this.tDriveStart = tw;
-          this.tracking = true;
-          this.prevAir.fill(1);
-          this.tL.fill(NaN);
-          this.wheelRestHeight = this.Yc;
-        }
+      this.staticSettleT += dt;
+
+      // 3. Load Ramp: Linearly ramp vertical load starting at 0.0 to Wload over tRampLoad (0.5 s)
+      const tRampLoad = p.tRampLoad !== undefined ? p.tRampLoad : 0.5;
+      const ramp =
+        tRampLoad > 0 ? Math.min(1.0, this.staticSettleT / tRampLoad) : 1.0;
+      currentWload = Wload * ramp;
+
+      // Allow the wheel to sink naturally into the bed under gravity for exactly 1.0 simulated second
+      const tStaticSettle =
+        p.tStaticSettle !== undefined ? p.tStaticSettle : 1.0;
+      if (this.staticSettleT >= tStaticSettle) {
+        // Measure and log the final wheel height at the end of this 1.0-second period.
+        // This is the static sinkage baseline.
+        this.wheelRestHeight = this.Yc;
+        this.staticSinkage = this.wheelSpawnYc - this.Yc;
+        this.Vy = 0; // Quiesce vertical transient before beginning drive
+
+        // Drive Phase Transition:
+        // Transition to drive phase and apply nominal driving velocities
+        this.phase = PHASE_DRIVE;
+        this.tDriveStart = tw;
+        this.tracking = true;
+        this.prevAir.fill(1);
+        this.tL.fill(NaN);
       }
-    } else if (this.phase === 'drive') {
-      const f = Math.min(
-        1,
-        (tw - this.tDriveStart) / Math.max(p.tRamp, 1e-9)
-      );
+    } else if (this.phase === PHASE_DRIVE) {
+      const f =
+        p.tRamp > 0
+          ? Math.min(1, (tw - this.tDriveStart) / p.tRamp)
+          : 1;
       om = f * p.omega;
       this.Wz = -dir * om;
       if (p.mode === 'slip') {
@@ -962,7 +1260,7 @@ export class RoverDEM {
     }
 
     this.om = om;
-    this.Vy += (FW[1] / M - p.g) * dt;
+    this.Vy += ((FW[1] - currentWload) / M) * dt;
     const dX = this.Vx * dt;
     this.Xu += dX;
     this.Xc = this.wrap(this.Xc + dX);
@@ -1060,14 +1358,35 @@ export class RoverDEM {
       const Lg = this.log;
       const n = Math.max(this.nacc, 1);
       const R = p.R;
+      const w3D = p.wheelWidth3D || 0.08;
+
+      const dp2D = (dir * this.facc[0]) / n;
+      const tq2D = (dir * this.facc[2]) / n;
+      const fy2D = this.facc[1] / n;
+
+      // Dynamic sinkage measured from baseline static sinkage point (wheelRestHeight)
+      // During static settling (before baseline is established), measure penetration from spawn position
+      const baselineHeight =
+        this.wheelRestHeight !== null
+          ? this.wheelRestHeight
+          : this.wheelSpawnYc !== undefined
+          ? this.wheelSpawnYc
+          : this.Yc;
+      const dynamicSinkageMm = (baselineHeight - this.Yc) * 1e3;
 
       Lg.t.push(tw);
       Lg.dist.push(dir * (this.Xu - this.X0));
-      Lg.sink.push((this.surfAt(this.Xc) - (this.Yc - R)) * 1e3);
+      Lg.sink.push(dynamicSinkageMm);
+      if (Lg.wheelY) Lg.wheelY.push(this.Yc);
       Lg.slip.push(om > 1e-9 ? 1 - (dir * this.Vx) / (om * R) : NaN);
-      Lg.dp.push((dir * this.facc[0]) / n);
-      Lg.tq.push((dir * this.facc[2]) / n);
-      Lg.fy.push(this.facc[1] / n);
+      Lg.dp.push(dp2D);
+      Lg.tq.push(tq2D);
+      Lg.fy.push(fy2D);
+      if (Lg.dp3D) {
+        Lg.dp3D.push(dp2D * w3D);
+        Lg.tq3D.push(tq2D * w3D);
+        Lg.fy3D.push(fy2D * w3D);
+      }
       Lg.vx.push(dir * this.Vx);
       Lg.vy.push(this.Vy);
       Lg.air.push(this.nAir);

@@ -352,7 +352,23 @@ export default function App() {
   };
 
   const handleParamChange = (k, v, isBad) => {
-    setParams((prev) => ({ ...prev, [k]: v }));
+    setParams((prev) => {
+      const next = { ...prev, [k]: v };
+      if (k === 'soilType') {
+        if (v === 'toyoura') {
+          next.rho = 2650;
+          next.targetBulkDensity = 1414;
+          next.cohesion = 0.00;
+          next.contactModel = 'spring-dashpot';
+        } else if (v === 'fjs-1') {
+          next.rho = 3230;
+          next.targetBulkDensity = 1740;
+          next.cohesion = 0.04;
+          next.contactModel = 'jkr';
+        }
+      }
+      return next;
+    });
     setBadInputs((prev) => ({ ...prev, [k]: isBad }));
   };
 
